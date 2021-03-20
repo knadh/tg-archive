@@ -1,0 +1,49 @@
+---
+# Telegram API ID and hash from the Telegram dev portal.
+# Signup for it here: https://my.telegram.org/auth?to=apps
+api_id: "123456"
+api_hash: "your_api_hash"
+
+# Telegram channel / group name to import. Your user account
+# that was used to creat the API ID should be a member of this group.
+group: "your_group_name"
+
+# Avatars and media will be downloaded into media_dir.
+download_media: True
+download_avatars: True
+avatar_size: [64, 64] # Width, Height.
+media_dir: "media"
+
+# These should be configured carefully to not get rate limited by Telegram.
+# Number of messages to fetch in one batch.
+fetch_batch_size: 2000
+
+# Seconds to wait after fetching one full batch and moving on to the next one.
+fetch_wait: 5
+
+# Max number of messages to fetch across all batches before the stopping.
+# This should be greater than fetch_batch_size.
+# Set to 0 to never stop until all messages have been fetched.
+fetch_limit: 0
+
+publish_dir: "site"
+static_dir: "static"
+per_page: 500
+show_day_index: True
+
+# URL to link Telegram group names and usernames.
+telegram_url: "https://t.me/{id}"
+
+# IMPORTANT: Telegram shows the full name on your (API key holder's)
+# phonebook for users who are in your phonebook.
+show_sender_fullname: False
+
+publish_rss_feed: True
+rss_feed_entries: 100 # Show Latest N messages in the RSS feed.
+
+# Root URL where the site will be hosted. No trailing slash.
+site_url: "https://mysite.com"
+site_name: "@{group} - Telegram group archive"
+site_description: "Public archive of Telegram messages."
+meta_description: "@{group} {date} - Telegram message archive."
+page_title: "Page {page} - {date} @{group} Telegram message archive."

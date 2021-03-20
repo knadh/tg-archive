@@ -1,0 +1,6 @@
+telethon==1.21
+jinja2==2.11.3
+PyYAML==5.4.1
+cryptg==0.2.post2
+Pillow==8.1.2
+feedgen==0.9.0

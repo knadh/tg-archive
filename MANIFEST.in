@@ -1,0 +1,3 @@
+include tgarchive/example/*
+include tgarchive/example/static/*
+include requirements.txt

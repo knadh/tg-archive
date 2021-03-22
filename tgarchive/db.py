@@ -188,9 +188,9 @@ class DB:
 
     def insert_message(self, m: Message):
         cur = self.conn.cursor()
-        cur.execute("""INSERT INTO messages
+        cur.execute("""INSERT OR REPLACE INTO messages
             (id, type, date, edit_date, content, reply_to, user_id, media_id)
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING""",
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?)""",
                     (m.id,
                      m.type,
                      m.date.strftime("%Y-%m-%d %H:%M:%S"),

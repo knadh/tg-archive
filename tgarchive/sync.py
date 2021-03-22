@@ -34,21 +34,29 @@ class Sync:
         if not os.path.exists(self.config["media_dir"]):
             os.mkdir(self.config["media_dir"])
 
-    def sync(self):
+    def sync(self, ids=None):
         """
         Sync syncs messages from Telegram from the last synced message
         into the local SQLite DB.
         """
-        last_id, last_date = self.db.get_last_message_id()
 
-        if last_id:
+        if ids:
+            last_id, last_date = (ids, None)
+        else:
+            last_id, last_date = self.db.get_last_message_id()
+
+        if ids:
+            logging.info("fetching message id={}".format(ids))
+        elif last_id:
             logging.info("fetching from last message id={} ({})".format(
                 last_id, last_date))
 
         n = 0
         while True:
             has = False
-            for m in self._get_messages(self.config["group"], offset_id=last_id if last_id else 0):
+            for m in self._get_messages(self.config["group"],
+                    offset_id=last_id if last_id else 0,
+                    ids=ids):
                 if not m:
                     continue
 
@@ -68,7 +76,7 @@ class Sync:
                     logging.info("fetched {} messages".format(n))
                     self.db.commit()
 
-                if self.config["fetch_limit"] > 0 and n >= self.config["fetch_limit"]:
+                if self.config["fetch_limit"] > 0 and n >= self.config["fetch_limit"] or ids:
                     has = False
                     break
 
@@ -85,10 +93,11 @@ class Sync:
         logging.info(
             "finished. fetched {} messages. last message = {}".format(n, last_date))
 
-    def _get_messages(self, group, offset_id) -> Message:
+    def _get_messages(self, group, offset_id, ids=None) -> Message:
         # https://docs.telethon.dev/en/latest/quick-references/objects-reference.html#message
         for m in self.client.get_messages(group, offset_id=offset_id,
                                           limit=self.config["fetch_batch_size"],
+                                          ids=ids,
                                           reverse=True):
 
             if not m or not m.sender:
@@ -166,7 +175,7 @@ class Sync:
         total = msg.media.results.total_voters
         for i, r in enumerate(msg.media.results.results):
             options[i]["count"] = r.voters
-            options[i]["percent"] = r.voters / total * 100
+            options[i]["percent"] = r.voters / total * 100 if total > 0 else 0
             options[i]["correct"] = r.correct
 
         return Media(

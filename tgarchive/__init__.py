@@ -67,6 +67,8 @@ def main():
     s = p.add_argument_group("sync")
     s.add_argument("-s", "--sync", action="store_true",
                    dest="sync", help="sync data from telegram group to the local DB")
+    s.add_argument("-id", "--id", action="store", type=int, nargs="+",
+                   dest="id", help="sync (or update) data for specific message ids")
 
     b = p.add_argument_group("build")
     b.add_argument("-b", "--build", action="store_true",
@@ -107,7 +109,7 @@ def main():
         ))
 
         try:
-            Sync(cfg, args.session, db.DB(args.data)).sync()
+            Sync(cfg, args.session, db.DB(args.data)).sync(args.id)
         except KeyboardInterrupt as e:
             logging.info("sync cancelled manually")
             quit()

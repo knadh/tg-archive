@@ -140,6 +140,22 @@
 										{% if m.media.description %}
 											<p>{{ m.media.description }}</p>
 										{% endif %}
+									{% elif m.media.type == "poll" %}
+										<div class="poll">
+											<h4 class="title">{{ m.media.title }}</h4>
+											<span class="total-count">
+												{{ m.media.description | sum(attribute="count") }} vote(s).
+											</span>
+											<ul class="options">
+												{% for o in m.media.description %}
+													<li>
+														<span class="count">{{ o.percent }}%, {{ o.count }} votes</span>
+														<span class="bar" style="width: {{ o.percent }}%"></span>
+														<label>{{ o.label }}</label>
+													</li>
+												{% endfor %}
+											</ul>
+										</div>
 									{% elif m.media.thumb %}
 										<a href="{{ config.media_dir }}/{{ m.media.url }}">
 											<img src="{{ config.media_dir }}/{{ m.media.thumb }}" class="thumb" /><br />

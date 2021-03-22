@@ -280,6 +280,28 @@ ul {
 			max-height: 150px;
 			width: auto;
 		}
+
+	.messages .poll .title {
+		margin: 0;
+	}
+		.messages .poll li {
+			margin-top: 15px;
+		}
+		.messages .poll .total-count,
+		.messages .poll .count {
+			color: var(--light);
+			font-size: var(--size-xsmall);
+			display: block;
+		}
+		.messages .poll .bar {
+			background: var(--primary);
+			height: 3px;
+			display: block;
+			max-width: 200px;
+			border-radius: 3px;
+			min-width: 3px;
+		}
+
 	.messages .type-user_joined .text {
 		color: var(--light);
 		font-style: italic;

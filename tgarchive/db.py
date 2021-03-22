@@ -1,3 +1,4 @@
+import json
 import math
 import os
 import sqlite3
@@ -174,9 +175,9 @@ class DB:
 
     def insert_media(self, m: Media):
         cur = self.conn.cursor()
-        cur.execute("""INSERT INTO media
+        cur.execute("""INSERT OR REPLACE INTO media
             (id, type, url, title, description, thumb)
-            VALUES(?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING""",
+            VALUES(?, ?, ?, ?, ?, ?)""",
                     (m.id,
                      m.type,
                      m.url,
@@ -213,11 +214,15 @@ class DB:
 
         md = None
         if media_id:
+            desc = media_description
+            if media_type == "poll":
+                desc = json.loads(media_description)
+
             md = Media(id=media_id,
                        type=media_type,
                        url=media_url,
                        title=media_title,
-                       description=media_description,
+                       description=desc,
                        thumb=media_thumb)
 
         return Message(id=id,

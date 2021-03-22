@@ -1,4 +1,5 @@
 from io import BytesIO
+import json
 import logging
 import os
 import re
@@ -104,6 +105,8 @@ class Sync:
                         a, telethon.tl.types.DocumentAttributeSticker)]
                     if len(alt) > 0:
                         sticker = alt[0]
+                elif isinstance(m.media, telethon.tl.types.MessageMediaPoll):
+                    med = self._make_poll(m)
                 else:
                     med = self._get_media(m)
 
@@ -154,6 +157,25 @@ class Sync:
             last_name=u.last_name,
             tags=tags,
             avatar=avatar
+        )
+
+    def _make_poll(self, msg):
+        options = [{"label": a.text, "count": 0, "correct": False}
+                   for a in msg.media.poll.answers]
+
+        total = msg.media.results.total_voters
+        for i, r in enumerate(msg.media.results.results):
+            options[i]["count"] = r.voters
+            options[i]["percent"] = r.voters / total * 100
+            options[i]["correct"] = r.correct
+
+        return Media(
+            id=msg.id,
+            type="poll",
+            url=None,
+            title=msg.media.poll.question,
+            description=json.dumps(options),
+            thumb=None
         )
 
     def _get_media(self, msg):

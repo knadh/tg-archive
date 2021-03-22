@@ -18,6 +18,7 @@ tg-archive uses the [Telethon](https://github.com/LonamiWebs/Telethon) Telegram 
 - Periodically sync Telegram group messages to a local DB.
 - Download user avatars locally.
 - Download and embed media (files, documents, photos).
+- Renders poll results.
 - Use emoji alternatives in place of stickers.
 - Single file Jinja HTML template for generating the static site.
 - Year / Month / Day indexes with deep linking across pages.

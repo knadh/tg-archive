@@ -12,7 +12,7 @@ def requirements():
 
 setup(
     name="tg-archive",
-    version="0.3.1",
+    version="0.3.2",
     description="is a tool for exporting Telegram group chats into static websites, preserving the chat history like mailing list archives.",
     long_description=README,
     long_description_content_type="text/markdown",

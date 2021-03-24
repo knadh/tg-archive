@@ -100,7 +100,7 @@ class Sync:
                                           ids=ids,
                                           reverse=True):
 
-            if not m or not m.sender or not isinstance(m.sender, telethon.tl.types.User):
+            if not m or not m.sender:
                 continue
 
             # Media.
@@ -140,8 +140,11 @@ class Sync:
 
     def _get_user(self, u) -> User:
         tags = []
-        if u.bot:
-            tags.append("bot")
+        is_normal_user = isinstance(u, telethon.tl.types.User)
+
+        if is_normal_user:
+            if u.bot:
+                tags.append("bot")
 
         if u.scam:
             tags.append("scam")
@@ -162,8 +165,8 @@ class Sync:
         return User(
             id=u.id,
             username=u.username if u.username else str(u.id),
-            first_name=u.first_name,
-            last_name=u.last_name,
+            first_name=u.first_name if is_normal_user else None,
+            last_name=u.last_name if is_normal_user else None,
             tags=tags,
             avatar=avatar
         )

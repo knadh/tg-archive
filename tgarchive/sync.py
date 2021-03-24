@@ -100,7 +100,7 @@ class Sync:
                                           ids=ids,
                                           reverse=True):
 
-            if not m or not m.sender:
+            if not m or not m.sender or not isinstance(m.sender, telethon.tl.types.User):
                 continue
 
             # Media.

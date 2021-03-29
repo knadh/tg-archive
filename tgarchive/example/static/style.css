@@ -131,26 +131,22 @@ ul {
 }
 .sidebar {
 	background: #f6f6f6;
-	flex: 30%;
 	padding: 30px 30px 30px 15%;
-	min-height: 100vh;
+	position: fixed;
+	top: 0;
+	bottom: 0;
+	width: 30%;
+	overflow-y: auto;
 }
 	.sidebar:target {
 		display: block;
 	}
 	.sidebar .footer {
-	    position: fixed;
-	    bottom: 15px;
 	    color: var(--light);
+	    font-size: var(--size-xsmall);
+	    margin: 15px 0;
 	}
 
-.index {
-	position: sticky;
-	top: 15px;
-	bottom: 0;
-	max-height: 95vh;
-	overflow-y: auto;
-}
 	.index li {
 		margin-bottom: 5px;
 	}
@@ -190,6 +186,7 @@ ul {
 .content {
 	background: #fff;
 	flex: 50%;
+	margin-left: 30%;
 	padding: 30px;
 	min-height: 100vh;
 }
@@ -327,7 +324,7 @@ ul {
 
 @media(max-width: 1350px) {
 	.sidebar, .content, .dayline {
-		padding: 15px;
+		padding: 30px;
 	}
 }
 
@@ -336,6 +333,14 @@ ul {
 	.container {
 		display: block;
 	}
+	.content, .sidebar {
+		position: static;
+		padding-top: 75px;
+		width: auto;
+	}
+	.content {
+		margin: 0;
+	}
 	.sidebar, .dayline {
 		min-height: auto;
 		position: static;
@@ -343,13 +348,6 @@ ul {
 	.sidebar, .dayline {
 		text-align: center;
 		display: none;
-	}
-	.content, .sidebar {
-		padding-top: 75px;
-	}
-	.sidebar .footer {
-		position: static;
-		margin: 15px 0 15px 0;
 	}
 
 	.nav {

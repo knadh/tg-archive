@@ -109,7 +109,7 @@ def main():
         ))
 
         try:
-            Sync(cfg, args.session, db.DB(args.data)).sync(args.id)
+            Sync(cfg, args.session, DB(args.data)).sync(args.id)
         except KeyboardInterrupt as e:
             logging.info("sync cancelled manually")
             quit()
@@ -121,7 +121,7 @@ def main():
         from .build import Build
 
         logging.info("building site")
-        b = Build(get_config(args.config), db.DB(args.data))
+        b = Build(get_config(args.config), DB(args.data))
         b.load_template(args.template)
         b.build()
 

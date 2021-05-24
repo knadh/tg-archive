@@ -1,4 +1,5 @@
 from io import BytesIO
+from sys import exit
 import json
 import logging
 import os
@@ -51,10 +52,12 @@ class Sync:
             logging.info("fetching from last message id={} ({})".format(
                 last_id, last_date))
 
+        group_id = self._get_group_id(self.config["group"])
+
         n = 0
         while True:
             has = False
-            for m in self._get_messages(self.config["group"],
+            for m in self._get_messages(group_id,
                     offset_id=last_id if last_id else 0,
                     ids=ids):
                 if not m:
@@ -271,3 +274,33 @@ class Sync:
         im.save(fpath, "JPEG")
 
         return fname
+
+    def _get_group_id(self, group):
+        """
+        Syncs the Entity cache and returns the Entity ID for the specified group,
+        which can be a str/int for group ID, group name, or a group username.
+
+        The authorized user must be a part of the group.
+        """
+        # Get all dialogs for the authorized user, which also
+        # syncs the entity cache to get latest entities
+        # ref: https://docs.telethon.dev/en/latest/concepts/entities.html#getting-entities
+        _ = self.client.get_dialogs()
+
+        try:
+            # If the passed group is a group ID, extract it.
+            group = int(group)
+        except ValueError:
+            # Not a group ID, we have either a group name or
+            # a group username: @group-username
+            pass
+
+        try:
+            entity = self.client.get_entity(group)
+        except ValueError:
+            logging.critical("the group: {} does not exist,"
+                          " or the authorized user is not a participant!".format(group))
+            # This is a critical error, so exit with code: 1
+            exit(1)
+
+        return entity.id

@@ -112,6 +112,7 @@ class Sync:
             if m.media:
                 # If it's a sticker, get the alt value (unicode emoji).
                 if isinstance(m.media, telethon.tl.types.MessageMediaDocument) and \
+                        hasattr(m.media, "document") and \
                         m.media.document.mime_type == "application/x-tgsticker":
                     alt = [a.alt for a in m.media.document.attributes if isinstance(
                         a, telethon.tl.types.DocumentAttributeSticker)]

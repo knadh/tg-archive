@@ -7,6 +7,8 @@ import yaml
 
 from .db import DB
 
+__version__ = "0.3.4"
+
 logging.basicConfig(format="%(asctime)s: %(message)s",
                     level=logging.INFO)
 
@@ -57,6 +59,7 @@ def main():
                    dest="data", help="path to the SQLite data file to store messages")
     p.add_argument("-se", "--session", action="store", type=str, default="session.session",
                    dest="session", help="path to the session file")
+    p.add_argument("-v", "--version", action="store_true", dest="version", help="display version")
 
     n = p.add_argument_group("new")
     n.add_argument("-n", "--new", action="store_true",
@@ -80,8 +83,12 @@ def main():
 
     args = p.parse_args(args=None if sys.argv[1:] else ['--help'])
 
+    if args.version:
+        print("v{}".format(__version__))
+        quit()
+
     # Setup new site.
-    if args.new:
+    elif args.new:
         exdir = os.path.join(os.path.dirname(__file__), "example")
         if not os.path.isdir(exdir):
             logging.error("unable to find bundled example directory")

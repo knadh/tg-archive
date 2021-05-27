@@ -180,10 +180,11 @@ class Sync:
                    for a in msg.media.poll.answers]
 
         total = msg.media.results.total_voters
-        for i, r in enumerate(msg.media.results.results):
-            options[i]["count"] = r.voters
-            options[i]["percent"] = r.voters / total * 100 if total > 0 else 0
-            options[i]["correct"] = r.correct
+        if msg.media.results.results:
+            for i, r in enumerate(msg.media.results.results):
+                options[i]["count"] = r.voters
+                options[i]["percent"] = r.voters / total * 100 if total > 0 else 0
+                options[i]["correct"] = r.correct
 
         return Media(
             id=msg.id,

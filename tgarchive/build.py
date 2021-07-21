@@ -113,7 +113,7 @@ class Build:
                                     make_filename=self.make_filename,
                                     nl2br=self._nl2br)
 
-        with open(os.path.join(self.config["publish_dir"], fname), "w", encoding='utf8') as f:
+        with open(os.path.join(self.config["publish_dir"], fname), "w", encoding="utf8") as f:
             f.write(html)
 
     def _build_rss(self, messages, rss_file, atom_file):

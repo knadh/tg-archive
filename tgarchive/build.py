@@ -171,8 +171,8 @@ class Build:
             else:
                 shutil.copytree(f, target)
 
-        # If media downloading is enabled, copy the media directory.
+        # If media downloading is enabled, symlink the media directory.
         mediadir = self.config["media_dir"]
         if os.path.exists(mediadir):
-            shutil.copytree(mediadir, os.path.join(
+            os.symlink(mediadir, os.path.join(
                 pubdir, os.path.basename(mediadir)))

@@ -12,7 +12,7 @@ The [@fossunited](https://tg.fossunited.org) Telegram group archive.
 
 
 ## How it works
-tg-archive uses the [Telethon](https://github.com/LonamiWebs/Telethon) Telegram API client to periodically sync messages from a group to a local SQLite database file, downloading only new messages since the last sync. It can then generate a static archive website of messages which can be published anywhere.
+tg-archive uses the [Telethon](https://github.com/LonamiWebs/Telethon) Telegram API client to periodically sync messages from a group to a local SQLite database (file), downloading only new messages since the last sync. It then generates a static archive website of messages to be published anywhere.
 
 ## Features
 - Periodically sync Telegram group messages to a local DB.

@@ -191,6 +191,10 @@ ul {
 	min-height: 100vh;
 }
 
+div.body > div.text {
+	overflow-wrap: anywhere;
+}
+
 .messages {
 }
 	/* Day breaker heading */

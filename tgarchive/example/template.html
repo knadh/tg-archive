@@ -100,7 +100,7 @@
 						<div class="body">
 							<div class="meta">
 								<a href="{{ config.telegram_url.format(id=m.user.username) }}" class="username" rel="noreferer nopener nofollow">
-									{% if config.user_fullname %}
+									{% if config.show_sender_fullname %}
 										{{ m.user.first_name }} {{ m.user.last_name }} (@{{ m.user.username }})
 									{% else %}
 										@{{ m.user.username }}

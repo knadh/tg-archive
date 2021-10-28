@@ -176,6 +176,9 @@ class Sync:
         )
 
     def _make_poll(self, msg):
+        if not msg.media.results or not msg.media.results.results:
+            return None
+
         options = [{"label": a.text, "count": 0, "correct": False}
                    for a in msg.media.poll.answers]
 

@@ -102,7 +102,7 @@ class DB:
         cur.execute("""
             SELECT strftime('%Y-%m-%d 00:00:00', date) as "[timestamp]",
             COUNT(*) FROM messages AS count
-            GROUP BY strftime('%Y-%m', date) ORDER BY id
+            GROUP BY strftime('%Y-%m', date) ORDER BY date
         """)
 
         for r in cur.fetchall():

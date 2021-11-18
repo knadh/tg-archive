@@ -144,7 +144,6 @@ class Sync:
                     wait_time = None
                 messages = self.client.get_messages(group, offset_id=offset_id, limit=self.config["fetch_batch_size"],
                                                     wait_time=wait_time, ids=ids, reverse=True)
-                logging.info("Took out {} messages".format(len(messages)))
                 return messages
             except errors.FloodWaitError as e:
                 logging.info("flood waited: have to wait {} seconds".format(e.seconds))

@@ -5,9 +5,6 @@ import shutil
 import sys
 import yaml
 
-from telethon import errors
-from telethon.sync import TelegramClient
-
 from .db import DB
 
 __version__ = "0.3.10"
@@ -114,41 +111,17 @@ def main():
         from .sync import Sync
 
         cfg = get_config(args.config)
-        logging.info("starting Telegram sync (batch_size={}, limit={}, wait={})".format(
-            cfg["fetch_batch_size"], cfg["fetch_limit"], cfg["fetch_wait"]
+        mode = "takeout" if cfg["use_takeout"] else "standard"
+        logging.info("starting Telegram sync (batch_size={}, limit={}, wait={}, mode={})".format(
+            cfg["fetch_batch_size"], cfg["fetch_limit"], cfg["fetch_wait"], mode
         ))
-
         try:
-            client = TelegramClient(args.session, cfg["api_id"], cfg["api_hash"])
-            client.start()
-            if cfg["use_takeout"]:
-                logging.info("using takeout method")
-                for retry in range(4):
-                    # if retry > 0
-                    try:
-                        with client.takeout(finalize=True) as takeout:
-                            Sync(cfg, takeout, DB(args.data)).sync(args.id)
-                            takeout.success = True
-                    except errors.TakeoutInitDelayError as e:
-                        logging.info(
-                            "please allow the data export request received from Telegram on your other device. "
-                            "You can also wait for {} seconds.".format(e.seconds))
-                        logging.info("press Enter key after allowing the data export request to continue..")
-                        wait_key = input("")
-                        logging.info("trying again..")
-                    except errors.TakeoutInvalidError:
-                        logging.info("please delete the session.session file and try again.")
-                        quit()
-                    else:
-                        break
-                else:
-                    logging.info("quitting")
-                    quit()
-            else:
-                logging.info("using standard method")
-                Sync(cfg, client, DB(args.data)).sync(args.id)
+            s = Sync(cfg, args.session, DB(args.data))
+            s.sync(args.id)
         except KeyboardInterrupt as e:
             logging.info("sync cancelled manually")
+            if cfg["use_takeout"]:
+                s.finish_takeout()
             quit()
         except:
             raise

@@ -17,14 +17,12 @@ media_dir: "media"
 # Takeout mode allows you to fetch messages at a higher rate than the standard mode.
 # It is the method used in the desktop client to export data.
 # You can use a larger fetch_batch_size. Set this as False to use the standard mode.
-use_takeout: True
+use_takeout: False
 
 # These should be configured carefully to not get rate limited by Telegram.
 # Number of messages to fetch in one batch.
-# For takeout mode (use_takeout: True)
-fetch_batch_size: 4000
-# For standard mode (use_takeout: False)
-# fetch_batch_size: 2000
+# For takeout mode (use_takeout: True), this value can be greater.
+fetch_batch_size: 2000
 
 # Seconds to wait after fetching one full batch and moving on to the next one.
 fetch_wait: 5

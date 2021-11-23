@@ -8,7 +8,7 @@ import shutil
 import time
 
 from PIL import Image
-from telethon import errors
+from telethon import errors, TelegramClient
 import telethon.tl.types
 
 from .db import User, Message, Media
@@ -22,11 +22,11 @@ class Sync:
     config = {}
     db = None
 
-    def __init__(self, config, client, db):
+    def __init__(self, config, session_file, db):
         self.config = config
         self.db = db
 
-        self.client = client
+        self.client = self.new_client(session_file, config)
 
         if not os.path.exists(self.config["media_dir"]):
             os.mkdir(self.config["media_dir"])
@@ -89,8 +89,39 @@ class Sync:
                 break
 
         self.db.commit()
+        if self.config["use_takeout"]:
+            self.finish_takeout()
         logging.info(
             "finished. fetched {} messages. last message = {}".format(n, last_date))
+
+    def new_client(self, session, config):
+        client = TelegramClient(session, config["api_id"], config["api_hash"])
+        client.start()
+        if config["use_takeout"]:
+            for retry in range(3):
+                try:
+                    takeout_client = client.takeout(finalize=True).__enter__()
+                    # check if the takeout session gets invalidated
+                    takeout_client.get_messages("me")
+                    return takeout_client
+                except errors.TakeoutInitDelayError as e:
+                    logging.info(
+                        "please allow the data export request received from Telegram on your other device. "
+                        "You can also wait for {} seconds.".format(e.seconds))
+                    logging.info("press Enter key after allowing the data export request to continue..")
+                    input()
+                    logging.info("trying again.. ({})".format(retry + 2))
+                except errors.TakeoutInvalidError:
+                    logging.info("takeout invalidated, please delete the session.session file and try again.")
+                    quit()
+            else:
+                logging.info("quitting")
+                quit()
+        else:
+            return client
+
+    def finish_takeout(self):
+        self.client.__exit__(None, None, None)
 
     def _get_messages(self, group, offset_id, ids=None) -> Message:
         messages = self._fetch_messages(group, offset_id, ids)
@@ -136,18 +167,19 @@ class Sync:
             )
 
     def _fetch_messages(self, group, offset_id, ids=None) -> Message:
-        while True:
-            try:
-                if self.config["use_takeout"]:
-                    wait_time = 0
-                else:
-                    wait_time = None
-                messages = self.client.get_messages(group, offset_id=offset_id, limit=self.config["fetch_batch_size"],
-                                                    wait_time=wait_time, ids=ids, reverse=True)
-                return messages
-            except errors.FloodWaitError as e:
-                logging.info("flood waited: have to wait {} seconds".format(e.seconds))
-                time.sleep(e.seconds)
+        try:
+            if self.config["use_takeout"]:
+                wait_time = 0
+            else:
+                wait_time = None
+            messages = self.client.get_messages(group, offset_id=offset_id,
+                                                limit=self.config["fetch_batch_size"],
+                                                wait_time=wait_time,
+                                                ids=ids,
+                                                reverse=True)
+            return messages
+        except errors.FloodWaitError as e:
+            logging.info("flood waited: have to wait {} seconds".format(e.seconds))
 
     def _get_user(self, u) -> User:
         tags = []

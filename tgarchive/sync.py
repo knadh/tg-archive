@@ -89,7 +89,7 @@ class Sync:
                 break
 
         self.db.commit()
-        if self.config["use_takeout"]:
+        if "use_takeout" in self.config:
             self.finish_takeout()
         logging.info(
             "finished. fetched {} messages. last message = {}".format(n, last_date))
@@ -97,7 +97,7 @@ class Sync:
     def new_client(self, session, config):
         client = TelegramClient(session, config["api_id"], config["api_hash"])
         client.start()
-        if config["use_takeout"]:
+        if "use_takeout" in config:
             for retry in range(3):
                 try:
                     takeout_client = client.takeout(finalize=True).__enter__()

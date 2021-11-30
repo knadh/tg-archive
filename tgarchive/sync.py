@@ -3,14 +3,12 @@ from sys import exit
 import json
 import logging
 import os
-import re
 import tempfile
 import shutil
 import time
 
-from jinja2 import Template
 from PIL import Image
-from telethon.sync import TelegramClient
+from telethon import TelegramClient, errors, sync
 import telethon.tl.types
 
 from .db import User, Message, Media
@@ -28,9 +26,7 @@ class Sync:
         self.config = config
         self.db = db
 
-        self.client = TelegramClient(
-            session_file, self.config["api_id"], self.config["api_hash"])
-        self.client.start()
+        self.client = self.new_client(session_file, config)
 
         if not os.path.exists(self.config["media_dir"]):
             os.mkdir(self.config["media_dir"])
@@ -58,14 +54,14 @@ class Sync:
         while True:
             has = False
             for m in self._get_messages(group_id,
-                    offset_id=last_id if last_id else 0,
-                    ids=ids):
+                                        offset_id=last_id if last_id else 0,
+                                        ids=ids):
                 if not m:
                     continue
 
                 has = True
 
-                # Inser the records into DB.
+                # Insert the records into DB.
                 self.db.insert_user(m.user)
 
                 if m.media:
@@ -79,7 +75,7 @@ class Sync:
                     logging.info("fetched {} messages".format(n))
                     self.db.commit()
 
-                if self.config["fetch_limit"] > 0 and n >= self.config["fetch_limit"] or ids:
+                if 0 < self.config["fetch_limit"] <= n or ids:
                     has = False
                     break
 
@@ -93,16 +89,44 @@ class Sync:
                 break
 
         self.db.commit()
+        if self.config.get("use_takeout", False):
+            self.finish_takeout()
         logging.info(
             "finished. fetched {} messages. last message = {}".format(n, last_date))
 
-    def _get_messages(self, group, offset_id, ids=None) -> Message:
-        # https://docs.telethon.dev/en/latest/quick-references/objects-reference.html#message
-        for m in self.client.get_messages(group, offset_id=offset_id,
-                                          limit=self.config["fetch_batch_size"],
-                                          ids=ids,
-                                          reverse=True):
+    def new_client(self, session, config):
+        client = TelegramClient(session, config["api_id"], config["api_hash"])
+        client.start()
+        if config.get("use_takeout", False):
+            for retry in range(3):
+                try:
+                    takeout_client = client.takeout(finalize=True).__enter__()
+                    # check if the takeout session gets invalidated
+                    takeout_client.get_messages("me")
+                    return takeout_client
+                except errors.TakeoutInitDelayError as e:
+                    logging.info(
+                        "please allow the data export request received from Telegram on your other device. "
+                        "You can also wait for {} seconds.".format(e.seconds))
+                    logging.info("press Enter key after allowing the data export request to continue..")
+                    input()
+                    logging.info("trying again.. ({})".format(retry + 2))
+                except errors.TakeoutInvalidError:
+                    logging.info("takeout invalidated, please delete the session.session file and try again.")
+                    quit()
+            else:
+                logging.info("quitting")
+                quit()
+        else:
+            return client
 
+    def finish_takeout(self):
+        self.client.__exit__(None, None, None)
+
+    def _get_messages(self, group, offset_id, ids=None) -> Message:
+        messages = self._fetch_messages(group, offset_id, ids)
+        # https://docs.telethon.dev/en/latest/quick-references/objects-reference.html#message
+        for m in messages:
             if not m or not m.sender:
                 continue
 
@@ -141,6 +165,21 @@ class Sync:
                 user=self._get_user(m.sender),
                 media=med
             )
+
+    def _fetch_messages(self, group, offset_id, ids=None) -> Message:
+        try:
+            if self.config.get("use_takeout", False):
+                wait_time = 0
+            else:
+                wait_time = None
+            messages = self.client.get_messages(group, offset_id=offset_id,
+                                                limit=self.config["fetch_batch_size"],
+                                                wait_time=wait_time,
+                                                ids=ids,
+                                                reverse=True)
+            return messages
+        except errors.FloodWaitError as e:
+            logging.info("flood waited: have to wait {} seconds".format(e.seconds))
 
     def _get_user(self, u) -> User:
         tags = []
@@ -272,7 +311,10 @@ class Sync:
 
         # Download the file into a container, resize it, and then write to disk.
         b = BytesIO()
-        self.client.download_profile_photo(user, file=b)
+        profile_photo = self.client.download_profile_photo(user, file=b)
+        if profile_photo is None:
+            logging.info("user has no avatar #{}".format(user.id))
+            return None
 
         im = Image.open(b)
         im.thumbnail(self.config["avatar_size"], Image.ANTIALIAS)
@@ -304,7 +346,7 @@ class Sync:
             entity = self.client.get_entity(group)
         except ValueError:
             logging.critical("the group: {} does not exist,"
-                          " or the authorized user is not a participant!".format(group))
+                             " or the authorized user is not a participant!".format(group))
             # This is a critical error, so exit with code: 1
             exit(1)
 

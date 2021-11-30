@@ -111,14 +111,17 @@ def main():
         from .sync import Sync
 
         cfg = get_config(args.config)
-        logging.info("starting Telegram sync (batch_size={}, limit={}, wait={})".format(
-            cfg["fetch_batch_size"], cfg["fetch_limit"], cfg["fetch_wait"]
+        mode = "takeout" if cfg.get("use_takeout", False) else "standard"
+        logging.info("starting Telegram sync (batch_size={}, limit={}, wait={}, mode={})".format(
+            cfg["fetch_batch_size"], cfg["fetch_limit"], cfg["fetch_wait"], mode
         ))
-
         try:
-            Sync(cfg, args.session, DB(args.data)).sync(args.id)
+            s = Sync(cfg, args.session, DB(args.data))
+            s.sync(args.id)
         except KeyboardInterrupt as e:
             logging.info("sync cancelled manually")
+            if cfg.get("use_takeout", False):
+                s.finish_takeout()
             quit()
         except:
             raise

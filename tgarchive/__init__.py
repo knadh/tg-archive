@@ -111,7 +111,7 @@ def main():
         from .sync import Sync
 
         cfg = get_config(args.config)
-        mode = "takeout" if "use_takeout" in cfg else "standard"
+        mode = "takeout" if cfg.get("use_takeout", False) else "standard"
         logging.info("starting Telegram sync (batch_size={}, limit={}, wait={}, mode={})".format(
             cfg["fetch_batch_size"], cfg["fetch_limit"], cfg["fetch_wait"], mode
         ))
@@ -120,7 +120,7 @@ def main():
             s.sync(args.id)
         except KeyboardInterrupt as e:
             logging.info("sync cancelled manually")
-            if "use_takeout" in cfg:
+            if cfg.get("use_takeout", False):
                 s.finish_takeout()
             quit()
         except:

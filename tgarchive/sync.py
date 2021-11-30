@@ -8,7 +8,7 @@ import shutil
 import time
 
 from PIL import Image
-from telethon import errors, TelegramClient
+from telethon import TelegramClient, errors, sync
 import telethon.tl.types
 
 from .db import User, Message, Media
@@ -89,7 +89,7 @@ class Sync:
                 break
 
         self.db.commit()
-        if "use_takeout" in self.config:
+        if self.config.get("use_takeout", False):
             self.finish_takeout()
         logging.info(
             "finished. fetched {} messages. last message = {}".format(n, last_date))
@@ -97,7 +97,7 @@ class Sync:
     def new_client(self, session, config):
         client = TelegramClient(session, config["api_id"], config["api_hash"])
         client.start()
-        if "use_takeout" in config:
+        if config.get("use_takeout", False):
             for retry in range(3):
                 try:
                     takeout_client = client.takeout(finalize=True).__enter__()
@@ -168,7 +168,7 @@ class Sync:
 
     def _fetch_messages(self, group, offset_id, ids=None) -> Message:
         try:
-            if self.config["use_takeout"]:
+            if self.config.get("use_takeout", False):
                 wait_time = 0
             else:
                 wait_time = None

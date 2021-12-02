@@ -118,6 +118,7 @@ def main():
 
         cfg = get_config(args.config)
         mode = "takeout" if cfg.get("use_takeout", False) else "standard"
+
         logging.info("starting Telegram sync (batch_size={}, limit={}, wait={}, mode={})".format(
             cfg["fetch_batch_size"], cfg["fetch_limit"], cfg["fetch_wait"], mode
         ))

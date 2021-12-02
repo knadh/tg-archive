@@ -106,17 +106,17 @@ class Sync:
                     return takeout_client
                 except errors.TakeoutInitDelayError as e:
                     logging.info(
-                        "please allow the data export request received from Telegram on your other device. "
-                        "You can also wait for {} seconds.".format(e.seconds))
+                        "please allow the data export request received from Telegram on your device. "
+                        "you can also wait for {} seconds.".format(e.seconds))
                     logging.info("press Enter key after allowing the data export request to continue..")
                     input()
                     logging.info("trying again.. ({})".format(retry + 2))
                 except errors.TakeoutInvalidError:
-                    logging.info("takeout invalidated, please delete the session.session file and try again.")
-                    quit()
+                    logging.info("takeout invalidated. delete the session.session file and try again.")
+                    raise
             else:
-                logging.info("quitting")
-                quit()
+                logging.info("could not initiate takeout.")
+                raise(Exception("could not initiate takeout."))
         else:
             return client
 

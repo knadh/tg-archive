@@ -1,4 +1,4 @@
-telethon==1.21
+telethon==1.24.0
 jinja2==2.11.3
 PyYAML==5.4.1
 cryptg==0.2.post2

@@ -31,7 +31,7 @@ class Sync:
         if not os.path.exists(self.config["media_dir"]):
             os.mkdir(self.config["media_dir"])
 
-    def sync(self, ids=None):
+    def sync(self, ids=None, from_id=None):
         """
         Sync syncs messages from Telegram from the last synced message
         into the local SQLite DB.
@@ -39,12 +39,12 @@ class Sync:
 
         if ids:
             last_id, last_date = (ids, None)
+            logging.info("fetching message id={}".format(ids))
+        elif from_id:
+            last_id, last_date = (from_id, None)
+            logging.info("fetching from last message id={}".format(last_id))
         else:
             last_id, last_date = self.db.get_last_message_id()
-
-        if ids:
-            logging.info("fetching message id={}".format(ids))
-        elif last_id:
             logging.info("fetching from last message id={} ({})".format(
                 last_id, last_date))
 

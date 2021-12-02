@@ -7,7 +7,7 @@ import yaml
 
 from .db import DB
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 logging.basicConfig(format="%(asctime)s: %(message)s",
                     level=logging.INFO)
@@ -71,7 +71,9 @@ def main():
     s.add_argument("-s", "--sync", action="store_true",
                    dest="sync", help="sync data from telegram group to the local DB")
     s.add_argument("-id", "--id", action="store", type=int, nargs="+",
-                   dest="id", help="sync (or update) data for specific message ids")
+                   dest="id", help="sync (or update) messages for given ids")
+    s.add_argument("-from-id", "--from-id", action="store", type=int,
+                   dest="from_id", help="sync (or update) messages from this id to the latest")
 
     b = p.add_argument_group("build")
     b.add_argument("-b", "--build", action="store_true",
@@ -85,21 +87,21 @@ def main():
 
     if args.version:
         print("v{}".format(__version__))
-        quit()
+        sys.exit()
 
     # Setup new site.
     elif args.new:
         exdir = os.path.join(os.path.dirname(__file__), "example")
         if not os.path.isdir(exdir):
             logging.error("unable to find bundled example directory")
-            quit(1)
+            sys.exit(1)
 
         try:
             shutil.copytree(exdir, args.path)
         except FileExistsError:
             logging.error(
                 "the directory '{}' already exists".format(args.path))
-            quit(1)
+            sys.exit(1)
         except:
             raise
 
@@ -110,6 +112,10 @@ def main():
         # Import because the Telegram client import is quite heavy.
         from .sync import Sync
 
+        if args.id and args.from_id and args.from_id > 0:
+            logging.error("pass either --id or --from-id but not both")
+            sys.exit(1)
+
         cfg = get_config(args.config)
         mode = "takeout" if cfg.get("use_takeout", False) else "standard"
         logging.info("starting Telegram sync (batch_size={}, limit={}, wait={}, mode={})".format(
@@ -117,12 +123,12 @@ def main():
         ))
         try:
             s = Sync(cfg, args.session, DB(args.data))
-            s.sync(args.id)
+            s.sync(args.id, args.from_id)
         except KeyboardInterrupt as e:
             logging.info("sync cancelled manually")
             if cfg.get("use_takeout", False):
                 s.finish_takeout()
-            quit()
+            sys.exit()
         except:
             raise
 

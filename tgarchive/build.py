@@ -138,9 +138,8 @@ class Build:
                                          os.path.basename(self.config["media_dir"]), m.media.url)
                 e.enclosure(murl, 0, "application/octet-stream")
 
-            f.rss_file(os.path.join(self.config["publish_dir"], "index.xml"))
-            f.atom_file(os.path.join(
-                self.config["publish_dir"], "index.atom"))
+        f.rss_file(os.path.join(self.config["publish_dir"], "index.xml"))
+        f.atom_file(os.path.join( self.config["publish_dir"], "index.atom"))
 
     def _make_abstract(self, m):
         out = m.content

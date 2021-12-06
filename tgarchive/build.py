@@ -5,6 +5,7 @@ import os
 import pkg_resources
 import re
 import shutil
+from datetime import timezone
 
 from feedgen.feed import FeedGenerator
 from jinja2 import Template
@@ -132,6 +133,8 @@ class Build:
             e.id(url)
             e.title("@{} on {} (#{})".format(m.user.username, m.date, m.id))
             e.description(self._make_abstract(m))
+            e.published(m.date.replace(tzinfo=timezone.utc))
+            e.link({"href": url})
 
             if m.media and m.media.url:
                 murl = "{}/{}/{}".format(self.config["site_url"],

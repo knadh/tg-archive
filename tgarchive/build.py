@@ -5,6 +5,7 @@ import os
 import pkg_resources
 import re
 import shutil
+import magic
 from datetime import timezone
 
 from feedgen.feed import FeedGenerator
@@ -139,7 +140,14 @@ class Build:
             if m.media and m.media.url:
                 murl = "{}/{}/{}".format(self.config["site_url"],
                                          os.path.basename(self.config["media_dir"]), m.media.url)
-                e.enclosure(murl, 0, "application/octet-stream")
+                try:
+                    media_path = "{}/{}".format(self.config["media_dir"], m.media.url)
+                    media_mime = magic.from_file(media_path, mime=True)
+                    media_size = str(os.path.getsize(media_path))
+                except FileNotFoundError:
+                    media_mime = "application/octet-stream"
+                    media_size = 0
+                e.enclosure(murl, media_size, media_mime)
 
         f.rss_file(os.path.join(self.config["publish_dir"], "index.xml"))
         f.atom_file(os.path.join( self.config["publish_dir"], "index.atom"))

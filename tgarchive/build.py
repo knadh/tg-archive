@@ -98,6 +98,10 @@ class Build:
         with open(fname, "r") as f:
             self.template = Template(f.read())
 
+    def load_rss_template(self, fname):
+        with open(fname, "r") as f:
+            self.rss_template = Template(f.read())
+
     def make_filename(self, month, page) -> str:
         fname = "{}{}.html".format(
             month.slug, "_" + str(page) if page > 1 else "")
@@ -133,7 +137,7 @@ class Build:
             e = f.add_entry()
             e.id(url)
             e.title("@{} on {} (#{})".format(m.user.username, m.date, m.id))
-            e.description(self._make_abstract(m))
+            e.content(self._make_abstract(m), type="html")
             e.published(m.date.replace(tzinfo=timezone.utc))
             e.link({"href": url})
 
@@ -150,13 +154,13 @@ class Build:
                 e.enclosure(murl, media_size, media_mime)
 
         f.rss_file(os.path.join(self.config["publish_dir"], "index.xml"))
-        f.atom_file(os.path.join( self.config["publish_dir"], "index.atom"))
+        f.atom_file(os.path.join(self.config["publish_dir"], "index.atom"))
 
     def _make_abstract(self, m):
-        out = m.content
-        if not out and m.media:
-            out = m.media.title
-        return out if out else ""
+        return self.rss_template.render(config=self.config,
+                                        m=m,
+                                        page_ids=self.page_ids,
+                                        nl2br=self._nl2br)
 
     def _nl2br(self, s) -> str:
         # There has to be a \n before <br> so as to not break

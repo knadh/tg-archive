@@ -1,7 +1,7 @@
 <div class="message type-{{ m.type }}" id="{{ m.id }}">
   <div class="avatar">
     {% if m.user.avatar %}
-    <img src="{{ config.media_dir }}/{{ m.user.avatar }}" alt="" />
+    <img src="{{ config.site_url }}/{{ config.media_dir }}/{{ m.user.avatar }}" alt="" />
     {% endif %}
   </div>
 
@@ -65,12 +65,12 @@
         </ul>
       </div>
       {% elif m.media.thumb %}
-      <a href="{{ config.media_dir }}/{{ m.media.url }}">
-        <img src="{{ config.media_dir }}/{{ m.media.thumb }}" class="thumb" /><br />
+      <a href="{{ config.site_url }}/{{ config.media_dir }}/{{ m.media.url }}">
+        <img src="{{ config.site_url }}/{{ config.media_dir }}/{{ m.media.thumb }}" class="thumb" /><br />
         <span class="filename">{{ m.media.title }}</span>
       </a>
       {% else %}
-      <a href="{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a>
+      <a href="{{ config.site_url }}/{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a>
       {% endif %}
     </div>
     {% endif %}

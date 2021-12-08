@@ -137,10 +137,10 @@ class Build:
             e = f.add_entry()
             e.id(url)
             e.title("@{} on {} (#{})".format(m.user.username, m.date, m.id))
-            e.content(self._make_abstract(m), type="html")
             e.published(m.date.replace(tzinfo=timezone.utc))
             e.link({"href": url})
 
+            media_mime = ""
             if m.media and m.media.url:
                 murl = "{}/{}/{}".format(self.config["site_url"],
                                          os.path.basename(self.config["media_dir"]), m.media.url)
@@ -152,13 +152,15 @@ class Build:
                     media_mime = "application/octet-stream"
                     media_size = 0
                 e.enclosure(murl, media_size, media_mime)
+            e.content(self._make_abstract(m, media_mime), type="html")
 
         f.rss_file(os.path.join(self.config["publish_dir"], "index.xml"))
         f.atom_file(os.path.join(self.config["publish_dir"], "index.atom"))
 
-    def _make_abstract(self, m):
+    def _make_abstract(self, m, media_mime):
         return self.rss_template.render(config=self.config,
                                         m=m,
+                                        media_mime=media_mime,
                                         page_ids=self.page_ids,
                                         nl2br=self._nl2br)
 

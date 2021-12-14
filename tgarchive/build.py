@@ -26,6 +26,8 @@ class Build:
         self.config = config
         self.db = db
 
+        self.rss_template: Template = None
+
         # Map of all message IDs across all months and the slug of the page
         # in which they occur (paginated), used to link replies to their
         # parent messages that may be on arbitrary pages.
@@ -158,11 +160,16 @@ class Build:
         f.atom_file(os.path.join(self.config["publish_dir"], "index.atom"))
 
     def _make_abstract(self, m, media_mime):
-        return self.rss_template.render(config=self.config,
-                                        m=m,
-                                        media_mime=media_mime,
-                                        page_ids=self.page_ids,
-                                        nl2br=self._nl2br)
+        if self.rss_template:
+            return self.rss_template.render(config=self.config,
+                                            m=m,
+                                            media_mime=media_mime,
+                                            page_ids=self.page_ids,
+                                            nl2br=self._nl2br)
+        out = m.content
+        if not out and m.media:
+            out = m.media.title
+        return out if out else ""
 
     def _nl2br(self, s) -> str:
         # There has to be a \n before <br> so as to not break

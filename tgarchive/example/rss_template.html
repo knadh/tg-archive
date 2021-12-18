@@ -1,0 +1,82 @@
+<div class="message type-{{ m.type }}" id="{{ m.id }}">
+  <div class="avatar">
+    {% if m.user.avatar %}
+    <img src="{{ config.site_url }}/{{ config.media_dir }}/{{ m.user.avatar }}" alt="" />
+    {% endif %}
+  </div>
+
+  <div class="body">
+    <div class="meta">
+      <a href="{{ config.telegram_url.format(id=m.user.username) }}" class="username" rel="noreferer nopener nofollow">
+        {% if config.show_sender_fullname %}
+        {{ m.user.first_name }} {{ m.user.last_name }} (@{{ m.user.username }})
+        {% else %}
+        @{{ m.user.username }}
+        {% endif %}
+      </a>
+
+      {% if m.reply_to %}
+      <a class="reply" href="{{ page_ids[m.reply_to] }}#{{ m.reply_to }}">↶ Reply to #{{ m.reply_to }}</a>
+      {% endif %}
+
+      <a class="id" href="#{{ m.id }}">#{{ m.id }}</a>
+
+      {% if m.user.tags %}
+      {% for t in m.user.tags %}
+      <span class="tags">{{ t }}</span>
+      {% endfor %}
+      {% endif %}
+
+      <span class="date">{{ m.date.strftime("%I:%M %p, %d %b %Y") }}</span>
+    </div>
+    <div class="text">
+      {% if m.type == "message" %}
+      {{ nl2br(m.content | escape) | safe | urlize }}
+      {% else %}
+      {% if m.type == "user_joined" %}
+      Joined.
+      {% elif m.type == "user_left" %}
+      Left.
+      {% endif %}
+      {% endif %}
+    </div>
+
+    {% if m.media %}
+    <div class="media">
+      {% if m.media.type == "webpage" and (m.media.title or m.media.description) %}
+      <a href="{{ m.media.url }}" rel="noreferer nopener nofollow">{{ m.media.title or "Link" }}</a>
+      {% if m.media.description %}
+      <p>{{ m.media.description }}</p>
+      {% endif %}
+      {% elif m.media.type == "poll" %}
+      <div class="poll">
+        <h4 class="title">{{ m.media.title }}</h4>
+        <span class="total-count">
+          {{ m.media.description | sum(attribute="count") }} vote(s).
+        </span>
+        <ul class="options">
+          {% for o in m.media.description %}
+          <li>
+            <span class="count">{{ o.percent }}%, {{ o.count }} votes</span>
+            <span class="bar" style="width: {{ o.percent }}%"></span>
+            <label>{{ o.label }}</label>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% elif m.media.thumb %}
+      <a href="{{ config.site_url }}/{{ config.media_dir }}/{{ m.media.url }}">
+        {% if media_mime.startswith("image/") %}
+        <img src="{{ config.site_url }}/{{ config.media_dir }}/{{ m.media.url }}" alt="{{ m.media.title }}" /><br />
+        {% else %}
+        <img src="{{ config.site_url }}/{{ config.media_dir }}/{{ m.media.thumb }}" class="thumb" /><br />
+        {% endif %}
+        <span class="filename">{{ m.media.title }}</span>
+      </a>
+      {% else %}
+      <a href="{{ config.site_url }}/{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>

@@ -80,6 +80,8 @@ def main():
                    dest="build", help="build the static site")
     b.add_argument("-t", "--template", action="store", type=str, default="template.html",
                    dest="template", help="path to the template file")
+    b.add_argument("--rss-template", action="store", type=str, default=None,
+                   dest="rss_template", help="path to the rss template file")
     b.add_argument("-o", "--output", action="store", type=str, default="site",
                    dest="output", help="path to the output directory")
 
@@ -140,6 +142,8 @@ def main():
         logging.info("building site")
         b = Build(get_config(args.config), DB(args.data))
         b.load_template(args.template)
+        if args.rss_template:
+            b.load_rss_template(args.rss_template)
         b.build()
 
         logging.info("published to directory '{}'".format(args.output))

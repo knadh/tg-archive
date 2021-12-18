@@ -5,6 +5,8 @@ import os
 import pkg_resources
 import re
 import shutil
+import magic
+from datetime import timezone
 
 from feedgen.feed import FeedGenerator
 from jinja2 import Template
@@ -23,6 +25,8 @@ class Build:
     def __init__(self, config, db):
         self.config = config
         self.db = db
+
+        self.rss_template: Template = None
 
         # Map of all message IDs across all months and the slug of the page
         # in which they occur (paginated), used to link replies to their
@@ -96,6 +100,10 @@ class Build:
         with open(fname, "r") as f:
             self.template = Template(f.read())
 
+    def load_rss_template(self, fname):
+        with open(fname, "r") as f:
+            self.rss_template = Template(f.read())
+
     def make_filename(self, month, page) -> str:
         fname = "{}{}.html".format(
             month.slug, "_" + str(page) if page > 1 else "")
@@ -131,18 +139,33 @@ class Build:
             e = f.add_entry()
             e.id(url)
             e.title("@{} on {} (#{})".format(m.user.username, m.date, m.id))
-            e.description(self._make_abstract(m))
+            e.published(m.date.replace(tzinfo=timezone.utc))
+            e.link({"href": url})
 
+            media_mime = ""
             if m.media and m.media.url:
                 murl = "{}/{}/{}".format(self.config["site_url"],
                                          os.path.basename(self.config["media_dir"]), m.media.url)
-                e.enclosure(murl, 0, "application/octet-stream")
+                try:
+                    media_path = "{}/{}".format(self.config["media_dir"], m.media.url)
+                    media_mime = magic.from_file(media_path, mime=True)
+                    media_size = str(os.path.getsize(media_path))
+                except FileNotFoundError:
+                    media_mime = "application/octet-stream"
+                    media_size = 0
+                e.enclosure(murl, media_size, media_mime)
+            e.content(self._make_abstract(m, media_mime), type="html")
 
-            f.rss_file(os.path.join(self.config["publish_dir"], "index.xml"))
-            f.atom_file(os.path.join(
-                self.config["publish_dir"], "index.atom"))
+        f.rss_file(os.path.join(self.config["publish_dir"], "index.xml"))
+        f.atom_file(os.path.join(self.config["publish_dir"], "index.atom"))
 
-    def _make_abstract(self, m):
+    def _make_abstract(self, m, media_mime):
+        if self.rss_template:
+            return self.rss_template.render(config=self.config,
+                                            m=m,
+                                            media_mime=media_mime,
+                                            page_ids=self.page_ids,
+                                            nl2br=self._nl2br)
         out = m.content
         if not out and m.media:
             out = m.media.title

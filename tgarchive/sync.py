@@ -97,6 +97,7 @@ class Sync:
     def new_client(self, session, config):
         client = TelegramClient(session, config["api_id"], config["api_hash"])
         client.start()
+        client.parse_mode = 'html'
         if config.get("use_takeout", False):
             for retry in range(3):
                 try:
@@ -160,7 +161,7 @@ class Sync:
                 id=m.id,
                 date=m.date,
                 edit_date=m.edit_date,
-                content=sticker if sticker else m.raw_text,
+                content=sticker if sticker else m.text,
                 reply_to=m.reply_to_msg_id if m.reply_to and m.reply_to.reply_to_msg_id else None,
                 user=self._get_user(m.sender),
                 media=med

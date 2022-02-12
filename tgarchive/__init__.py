@@ -82,7 +82,7 @@ def main():
                    dest="template", help="path to the template file")
     b.add_argument("-o", "--output", action="store", type=str, default="site",
                    dest="output", help="path to the output directory")
-    p.add_argument("--symlink", action="store_true", dest="symlink",
+    b.add_argument("--symlink", action="store_true", dest="symlink",
                    help="use symlinks to save disk space")
 
     args = p.parse_args(args=None if sys.argv[1:] else ['--help'])

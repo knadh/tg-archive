@@ -20,6 +20,7 @@ _CONFIG = {
     "avatar_size": [64, 64],
     "download_media": False,
     "media_dir": "media",
+    "media_mime_types": [],
     "fetch_batch_size": 2000,
     "fetch_wait": 5,
     "fetch_limit": 0,

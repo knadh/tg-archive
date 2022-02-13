@@ -84,6 +84,8 @@ def main():
                    dest="rss_template", help="path to the rss template file")
     b.add_argument("-o", "--output", action="store", type=str, default="site",
                    dest="output", help="path to the output directory")
+    b.add_argument("--symlink", action="store_true", dest="symlink",
+                   help="symlink media and other static files instead of copying")
 
     args = p.parse_args(args=None if sys.argv[1:] else ['--help'])
 
@@ -140,7 +142,7 @@ def main():
         from .build import Build
 
         logging.info("building site")
-        b = Build(get_config(args.config), DB(args.data))
+        b = Build(get_config(args.config), DB(args.data), args.symlink)
         b.load_template(args.template)
         if args.rss_template:
             b.load_rss_template(args.rss_template)

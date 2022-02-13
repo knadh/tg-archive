@@ -22,9 +22,10 @@ class Build:
     template = None
     db = None
 
-    def __init__(self, config, db):
+    def __init__(self, config, db, symlink):
         self.config = config
         self.db = db
+        self.symlink = symlink
 
         self.rss_template: Template = None
 
@@ -89,8 +90,11 @@ class Build:
 
         # The last page chronologically is the latest page. Make it index.
         if fname:
-            shutil.copy(os.path.join(self.config["publish_dir"], fname),
-                        os.path.join(self.config["publish_dir"], "index.html"))
+            if self.symlink:
+                os.symlink(fname, os.path.join(self.config["publish_dir"], "index.html"))
+            else:
+                shutil.copy(os.path.join(self.config["publish_dir"], fname),
+                            os.path.join(self.config["publish_dir"], "index.html"))
 
         # Generate RSS feeds.
         if self.config["publish_rss_feed"]:
@@ -189,13 +193,19 @@ class Build:
         # Copy the static directory into the output directory.
         for f in [self.config["static_dir"]]:
             target = os.path.join(pubdir, f)
-            if os.path.isfile(f):
+            if self.symlink:
+                os.symlink(os.path.abspath(f), target)
+            elif os.path.isfile(f):
                 shutil.copyfile(f, target)
             else:
                 shutil.copytree(f, target)
 
-        # If media downloading is enabled, copy the media directory.
+        # If media downloading is enabled, copy/symlink the media directory.
         mediadir = self.config["media_dir"]
         if os.path.exists(mediadir):
-            shutil.copytree(mediadir, os.path.join(
-                pubdir, os.path.basename(mediadir)))
+            if self.symlink:
+                os.symlink(os.path.abspath(mediadir), os.path.join(
+                    pubdir, os.path.basename(mediadir)))
+            else:
+                shutil.copytree(mediadir, os.path.join(
+                    pubdir, os.path.basename(mediadir)))

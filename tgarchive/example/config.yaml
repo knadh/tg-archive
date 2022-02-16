@@ -14,6 +14,9 @@ download_avatars: True
 avatar_size: [64, 64] # Width, Height.
 media_dir: "media"
 
+# Preserve formatting in messages (inline links, bold, italic, underline, etc.).
+html_messages: True
+
 # Takeout mode allows you to fetch messages at a higher rate than the standard mode.
 # It is the method used in the desktop client to export data.
 # You can use a larger fetch_batch_size. Set this as False to use the standard mode.

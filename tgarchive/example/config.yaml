@@ -4,8 +4,10 @@
 api_id: "123456"
 api_hash: "your_api_hash"
 
-# Telegram channel / group name to import. Your user account
-# that was used to creat the API ID should be a member of this group.
+# Telegram channel / group name or your group username or your group id(a negative number) to import. 
+# Your user account that was used to creat the API ID should 
+# be a member of this group.
+
 group: "your_group_name or your_group_username or your_group_id(a negative number)"
 
 # Avatars and media will be downloaded into media_dir.

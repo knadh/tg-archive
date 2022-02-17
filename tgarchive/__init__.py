@@ -7,7 +7,7 @@ import yaml
 
 from .db import DB
 
-__version__ = "0.5.3"
+__version__ = "0.5.4"
 
 logging.basicConfig(format="%(asctime)s: %(message)s",
                     level=logging.INFO)
@@ -20,6 +20,7 @@ _CONFIG = {
     "avatar_size": [64, 64],
     "download_media": False,
     "media_dir": "media",
+    "media_mime_types": [],
     "fetch_batch_size": 2000,
     "fetch_wait": 5,
     "fetch_limit": 0,
@@ -84,6 +85,8 @@ def main():
                    dest="rss_template", help="path to the rss template file")
     b.add_argument("-o", "--output", action="store", type=str, default="site",
                    dest="output", help="path to the output directory")
+    b.add_argument("--symlink", action="store_true", dest="symlink",
+                   help="symlink media and other static files instead of copying")
 
     args = p.parse_args(args=None if sys.argv[1:] else ['--help'])
 
@@ -140,7 +143,7 @@ def main():
         from .build import Build
 
         logging.info("building site")
-        b = Build(get_config(args.config), DB(args.data))
+        b = Build(get_config(args.config), DB(args.data), args.symlink)
         b.load_template(args.template)
         if args.rss_template:
             b.load_rss_template(args.rss_template)

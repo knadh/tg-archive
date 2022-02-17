@@ -14,6 +14,11 @@ download_avatars: True
 avatar_size: [64, 64] # Width, Height.
 media_dir: "media"
 
+# The list of media/file mime types (in lowercase) to download.
+# eg: ["image/gif", "image/jpeg", "image/png", "video/mp4", "application/zip", "application/pdf"]
+# If left empty, files of all types are downloaded.
+media_mime_types: []
+
 # Takeout mode allows you to fetch messages at a higher rate than the standard mode.
 # It is the method used in the desktop client to export data.
 # You can use a larger fetch_batch_size. Set this as False to use the standard mode.

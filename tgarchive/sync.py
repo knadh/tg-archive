@@ -253,6 +253,13 @@ class Sync:
                 isinstance(msg.media, telethon.tl.types.MessageMediaDocument) or \
                 isinstance(msg.media, telethon.tl.types.MessageMediaContact):
             if self.config["download_media"]:
+                # Filter by extensions?
+                if len(self.config["media_mime_types"]) > 0:
+                    if hasattr(msg, "file") and hasattr(msg.file, "mime_type") and msg.file.mime_type:
+                        if msg.file.mime_type not in self.config["media_mime_types"]:
+                            logging.info("skipping media #{} / {}".format(msg.file.name, msg.file.mime_type))
+                            return
+
                 logging.info("downloading media #{}".format(msg.id))
                 try:
                     basename, fname, thumb = self._download_media(msg)

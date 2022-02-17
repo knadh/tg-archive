@@ -14,6 +14,11 @@ download_avatars: True
 avatar_size: [64, 64] # Width, Height.
 media_dir: "media"
 
+# The list of media/file mime types (in lowercase) to download.
+# eg: ["image/gif", "image/jpeg", "image/png", "video/mp4", "application/zip", "application/pdf"]
+# If left empty, files of all types are downloaded.
+media_mime_types: []
+
 # Preserve formatting in messages (inline links, bold, italic, underline, etc.).
 html_messages: True
 

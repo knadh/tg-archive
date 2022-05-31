@@ -17,6 +17,13 @@ from .db import User, Message
 _NL2BR = re.compile(r"\n\n+")
 
 
+def relative_symlink(src, dst):
+    dir = os.path.dirname(dst)
+    Src = os.path.relpath(src, dir)
+    Dst = os.path.join(dir, os.path.basename(src))
+    return os.symlink(Src, Dst)
+
+
 class Build:
     config = {}
     template = None
@@ -194,7 +201,7 @@ class Build:
         for f in [self.config["static_dir"]]:
             target = os.path.join(pubdir, f)
             if self.symlink:
-                os.symlink(os.path.abspath(f), target)
+                relative_symlink(os.path.abspath(f), target)
             elif os.path.isfile(f):
                 shutil.copyfile(f, target)
             else:
@@ -204,7 +211,7 @@ class Build:
         mediadir = self.config["media_dir"]
         if os.path.exists(mediadir):
             if self.symlink:
-                os.symlink(os.path.abspath(mediadir), os.path.join(
+                relative_symlink(os.path.abspath(mediadir), os.path.join(
                     pubdir, os.path.basename(mediadir)))
             else:
                 shutil.copytree(mediadir, os.path.join(

@@ -1,6 +1,8 @@
 ---
 # Telegram API ID and hash from the Telegram dev portal.
 # Signup for it here: https://my.telegram.org/auth?to=apps
+# You can remove api_id and api_hash here, and instead,
+# pass the environment variables API_ID and API_HASH to tg-archive
 api_id: "123456"
 api_hash: "your_api_hash"
 

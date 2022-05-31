@@ -143,10 +143,11 @@ def main():
         from .build import Build
 
         logging.info("building site")
-        b = Build(get_config(args.config), DB(args.data), args.symlink)
+        config = get_config(args.config)
+        b = Build(config, DB(args.data), args.symlink)
         b.load_template(args.template)
         if args.rss_template:
             b.load_rss_template(args.rss_template)
         b.build()
 
-        logging.info("published to directory '{}'".format(args.output))
+        logging.info("published to directory '{}'".format(config["publish_dir"]))

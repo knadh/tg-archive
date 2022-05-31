@@ -13,8 +13,8 @@ logging.basicConfig(format="%(asctime)s: %(message)s",
                     level=logging.INFO)
 
 _CONFIG = {
-    "api_id": "",
-    "api_hash": "",
+    "api_id": os.getenv("API_ID", ""),
+    "api_hash": os.getenv("API_HASH", ""),
     "group": "",
     "download_avatars": True,
     "avatar_size": [64, 64],

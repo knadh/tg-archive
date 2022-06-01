@@ -83,8 +83,6 @@ def main():
                    dest="template", help="path to the template file")
     b.add_argument("--rss-template", action="store", type=str, default=None,
                    dest="rss_template", help="path to the rss template file")
-    b.add_argument("-o", "--output", action="store", type=str, default="site",
-                   dest="output", help="path to the output directory")
     b.add_argument("--symlink", action="store_true", dest="symlink",
                    help="symlink media and other static files instead of copying")
 

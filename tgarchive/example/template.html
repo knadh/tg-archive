@@ -54,7 +54,9 @@
 		        			<li class="{% if m.slug == month.slug %}selected{% endif %}">
 		        				<a href="{{ m.slug }}.html">
 		        					{{ m.label }}
-		        					<span class="count">({{ m.count }})
+		        					{% if config.show_post_count_per_month %}
+		        						<span class="count">({{ m.count }})
+		        					{% endif %}
 		        				</span></a>
 		        			</li>
 		        		{% endfor %}
@@ -87,7 +89,12 @@
 					{% set day = m.date.strftime("%d %B %Y") %}
 					{% if loop.index0 == 0 or day != messages[loop.index0 - 1].date.strftime("%d %B %Y") %}
 						<li class="day" id="{{ m.date.strftime('%Y-%m-%d') }}">
-							<span class="title">{{ day }} <span class="count">({{ dayline[m.date.strftime("%Y-%m-%d")].count }} messages)</span></span>
+							<span class="title">
+								{{ day }}
+								{% if config.show_post_count_per_day %}
+									<span class="count">({{ dayline[m.date.strftime("%Y-%m-%d")].count }} messages)</span>
+								{% endif %}
+							</span>
 						</li>
 					{% endif %}
 					<li class="message type-{{ m.type }}" id="{{ m.id }}">
@@ -188,7 +195,10 @@
 				{% for _, d in dayline.items() %}
 					<li class="day-{{ d.slug }}">
 						<a href="{{ make_filename(month, d.page) }}#{{ d.slug }}">
-							{{ d.date.strftime("%d %b %Y") }} <span class="count">({{ d.count }})</span>
+							{{ d.date.strftime("%d %b %Y") }}
+							{% if config.show_post_count_per_day %}
+								<span class="count">({{ d.count }})</span>
+							{% endif %}
 						</a>
 					</li>
 				{% endfor %}

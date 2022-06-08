@@ -160,8 +160,8 @@ class Build:
                 e.enclosure(murl, media_size, media_mime)
             e.content(self._make_abstract(m, media_mime), type="html")
 
-        f.rss_file(os.path.join(self.config["publish_dir"], "index.xml"))
-        f.atom_file(os.path.join(self.config["publish_dir"], "index.atom"))
+        f.rss_file(os.path.join(self.config["publish_dir"], "index.xml"), pretty=True)
+        f.atom_file(os.path.join(self.config["publish_dir"], "index.atom"), pretty=True)
 
     def _make_abstract(self, m, media_mime):
         if self.rss_template:

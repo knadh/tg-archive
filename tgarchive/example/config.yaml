@@ -62,6 +62,7 @@ rss_feed_entries: 100 # Show Latest N messages in the RSS feed.
 site_url: "https://mysite.com"
 site_name: "@{group} - Telegram group archive"
 #site_logo: "media/avatar_1111111111.jpg"
+#site_favicon: "media/avatar_1111111111.jpg"
 site_description: "Public archive of Telegram messages."
 meta_description: "@{group} {date} - Telegram message archive."
 page_title: "Page {page} - {date} @{group} Telegram message archive."

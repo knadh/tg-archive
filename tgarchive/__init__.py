@@ -109,6 +109,14 @@ def main():
             raise
 
         logging.info("created directory '{}'".format(args.path))
+        
+        # make sure the files are writable
+        os.chmod(args.path, 0o755)
+        for root, dirs, files in os.walk(args.path):
+            for d in dirs:
+                os.chmod(os.path.join(root, d), 0o755)
+            for f in files:
+                os.chmod(os.path.join(root, f), 0o644)
 
     # Sync from Telegram.
     elif args.sync:

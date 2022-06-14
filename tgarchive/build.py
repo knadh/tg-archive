@@ -14,6 +14,14 @@ from jinja2 import Template
 from .db import User, Message
 
 
+default_template_options = {
+    # https://jinja.palletsprojects.com/en/latest/api/#jinja2.Environment
+    # https://jinja.palletsprojects.com/en/latest/templates/#whitespace-control
+    "trim_blocks": True, # remove first newline after template tags
+    "lstrip_blocks": True, # remove indent before template tags
+}
+
+
 _NL2BR = re.compile(r"\n\n+")
 
 
@@ -26,6 +34,10 @@ class Build:
         self.config = config
         self.db = db
         self.symlink = symlink
+
+        self.template_options = default_template_options
+        if "template_options" in self.config:
+            self.template_options.update(self.config["template_options"])
 
         self.rss_template: Template = None
 
@@ -102,7 +114,7 @@ class Build:
 
     def load_template(self, fname):
         with open(fname, "r") as f:
-            self.template = Template(f.read())
+            self.template = Template(f.read(), **self.template_options)
 
     def load_rss_template(self, fname):
         with open(fname, "r") as f:

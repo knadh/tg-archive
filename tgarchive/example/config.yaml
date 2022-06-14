@@ -64,3 +64,9 @@ site_name: "@{group} - Telegram group archive"
 site_description: "Public archive of Telegram messages."
 meta_description: "@{group} {date} - Telegram message archive."
 page_title: "Page {page} - {date} @{group} Telegram message archive."
+
+# options for the jinja2 template engine
+# https://jinja.palletsprojects.com/en/latest/api/#jinja2.Environment
+template_options:
+  trim_blocks: True # remove first newline after block template tags
+  lstrip_blocks: True # remove indent before block template tags

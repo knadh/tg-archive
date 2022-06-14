@@ -39,10 +39,10 @@
 			<header class="header">
 				<div class="logo">
 					<a href="{{ config.site_url }}"><img src="static/logo.svg" alt="" /></a>
-					<p class="desc">
+					<div class="desc">
 						<a href="{{ config.telegram_url.format(id=config.group) }}" rel="noreferer nopener nofollow">@{{ config.group }}</a> /
 						{{ config.site_description.format(group=config.group, date=config.date) }}
-					</p>
+					</div>
 				</div>
 			</header>
 			<ul class="timeline index">
@@ -145,7 +145,7 @@
 									{% if m.media.type == "webpage" and (m.media.title or m.media.description) %}
 										<a href="{{ m.media.url }}" rel="noreferer nopener nofollow">{{ m.media.title or "Link" }}</a>
 										{% if m.media.description %}
-											<p>{{ m.media.description }}</p>
+											<div>{{ m.media.description }}</div>
 										{% endif %}
 									{% elif m.media.type == "poll" %}
 										<div class="poll">

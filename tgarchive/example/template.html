@@ -46,23 +46,23 @@
 				</div>
 			</header>
 			<ul class="timeline index">
-		        {% for year, months in timeline.items() | reverse %}
-		        <li class="">
-		        	<h3 class="year"><a href="{{ months[0].slug }}.html">{{ year }}</a></h3>
-		        	<ul class="months">
-		        		{% for m in months | reverse %}
-		        			<li class="{% if m.slug == month.slug %}selected{% endif %}">
-		        				<a href="{{ m.slug }}.html">
-		        					{{ m.label }}
-		        					{% if config.show_post_count_per_month %}
-		        						<span class="count">({{ m.count }})
-		        					{% endif %}
-		        				</span></a>
-		        			</li>
-		        		{% endfor %}
-		        	</ul>
-		        </li>
-		        {% endfor %}
+				{% for year, months in timeline.items() | reverse %}
+					<li class="">
+						<h3 class="year"><a href="{{ months[0].slug }}.html">{{ year }}</a></h3>
+						<ul class="months">
+							{% for m in months | reverse %}
+								<li class="{% if m.slug == month.slug %}selected{% endif %}">
+									<a href="{{ m.slug }}.html">
+										{{ m.label }}
+										{% if config.show_post_count_per_month %}
+											<span class="count">({{ m.count }})</span>
+										{% endif %}
+									</a>
+								</li>
+							{% endfor %}
+						</ul>
+					</li>
+				{% endfor %}
 			</ul>
 
 			<footer class="footer">

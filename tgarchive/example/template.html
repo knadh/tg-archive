@@ -38,7 +38,9 @@
 		<section class="sidebar" id="sidebar">
 			<header class="header">
 				<div class="logo">
-					<a href="{{ config.site_url }}"><img src="static/logo.svg" alt="" /></a>
+					<a href="{{ config.site_url }}">
+						<img src="{{ config.site_logo or 'static/logo.svg' }}" alt="" />
+					</a>
 					<div class="desc">
 						<a href="{{ config.telegram_url.format(id=config.group) }}" rel="noreferer nopener nofollow">@{{ config.group }}</a> /
 						{{ config.site_description.format(group=config.group, date=config.date) }}

@@ -65,6 +65,8 @@ site_name: "@{group} - Telegram group archive"
 site_description: "Public archive of Telegram messages."
 meta_description: "@{group} {date} - Telegram message archive."
 page_title: "Page {page} - {date} @{group} Telegram message archive."
+# custom css. example: show a round logo
+#extra_style: 'div.logo > a { display: block; height: 64px; width: 64px; border-radius: 100%; position: relative; overflow: hidden; }'
 
 # options for the jinja2 template engine
 # https://jinja.palletsprojects.com/en/latest/api/#jinja2.Environment

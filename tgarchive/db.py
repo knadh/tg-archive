@@ -225,6 +225,10 @@ class DB:
                        description=desc,
                        thumb=media_thumb)
 
+        # dont print empty content as "None"
+        if content == None:
+            content = ""
+
         return Message(id=id,
                        type=typ,
                        date=date,

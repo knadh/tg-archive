@@ -96,6 +96,20 @@ class Sync:
 
     def new_client(self, session, config):
         client = TelegramClient(session, config["api_id"], config["api_hash"])
+
+        # hide log messages
+        # upstream issue https://github.com/LonamiWebs/Telethon/issues/3840
+        client_logger = client._log["telethon.client.downloads"]
+        client_logger._info = client_logger.info
+        def patched_info(*args, **kwargs):
+            if (
+                args[0] == "File lives in another DC" or
+                args[0] == "Starting direct file download in chunks of %d at %d, stride %d"
+            ):
+                return client_logger.debug(*args, **kwargs)
+            client_logger._info(*args, **kwargs)
+        client_logger.info = patched_info
+
         client.start()
         if config.get("use_takeout", False):
             for retry in range(3):

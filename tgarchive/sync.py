@@ -101,6 +101,7 @@ class Sync:
         # upstream issue https://github.com/LonamiWebs/Telethon/issues/3840
         client_logger = client._log["telethon.client.downloads"]
         client_logger._info = client_logger.info
+
         def patched_info(*args, **kwargs):
             if (
                 args[0] == "File lives in another DC" or
@@ -122,11 +123,13 @@ class Sync:
                     logging.info(
                         "please allow the data export request received from Telegram on your device. "
                         "you can also wait for {} seconds.".format(e.seconds))
-                    logging.info("press Enter key after allowing the data export request to continue..")
+                    logging.info(
+                        "press Enter key after allowing the data export request to continue..")
                     input()
                     logging.info("trying again.. ({})".format(retry + 2))
                 except errors.TakeoutInvalidError:
-                    logging.info("takeout invalidated. delete the session.session file and try again.")
+                    logging.info(
+                        "takeout invalidated. delete the session.session file and try again.")
                     raise
             else:
                 logging.info("could not initiate takeout.")
@@ -193,11 +196,22 @@ class Sync:
                                                 reverse=True)
             return messages
         except errors.FloodWaitError as e:
-            logging.info("flood waited: have to wait {} seconds".format(e.seconds))
+            logging.info(
+                "flood waited: have to wait {} seconds".format(e.seconds))
 
     def _get_user(self, u) -> User:
         tags = []
         is_normal_user = isinstance(u, telethon.tl.types.User)
+
+        if isinstance(u, telethon.tl.types.ChannelForbidden):
+            return User(
+                id=u.id,
+                username=u.title,
+                first_name=None,
+                last_name=None,
+                tags=tags,
+                avatar=None
+            )
 
         if is_normal_user:
             if u.bot:
@@ -239,7 +253,8 @@ class Sync:
         if msg.media.results.results:
             for i, r in enumerate(msg.media.results.results):
                 options[i]["count"] = r.voters
-                options[i]["percent"] = r.voters / total * 100 if total > 0 else 0
+                options[i]["percent"] = r.voters / \
+                    total * 100 if total > 0 else 0
                 options[i]["correct"] = r.correct
 
         return Media(
@@ -270,7 +285,8 @@ class Sync:
                 if len(self.config["media_mime_types"]) > 0:
                     if hasattr(msg, "file") and hasattr(msg.file, "mime_type") and msg.file.mime_type:
                         if msg.file.mime_type not in self.config["media_mime_types"]:
-                            logging.info("skipping media #{} / {}".format(msg.file.name, msg.file.mime_type))
+                            logging.info(
+                                "skipping media #{} / {}".format(msg.file.name, msg.file.mime_type))
                             return
 
                 logging.info("downloading media #{}".format(msg.id))

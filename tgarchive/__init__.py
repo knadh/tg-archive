@@ -21,6 +21,9 @@ _CONFIG = {
     "download_media": False,
     "media_dir": "media",
     "media_mime_types": [],
+    "proxy": {
+        "enable": False,
+    },
     "fetch_batch_size": 2000,
     "fetch_wait": 5,
     "fetch_limit": 0,

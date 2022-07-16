@@ -28,6 +28,14 @@ media_mime_types: []
 # You can use a larger fetch_batch_size. Set this as False to use the standard mode.
 use_takeout: False
 
+# Use a proxy to access Telegram
+# https://github.com/LonamiWebs/Telethon/blob/master/readthedocs/basic/signing-in.rst#signing-in-behind-a-proxy
+proxy:
+  enable: False
+  protocol: "socks5"
+  addr: "127.0.0.1"
+  port: 1080
+
 # These should be configured carefully to not get rate limited by Telegram.
 # Number of messages to fetch in one batch.
 # For takeout mode (use_takeout: True), this value can be greater.

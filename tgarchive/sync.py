@@ -95,8 +95,11 @@ class Sync:
             "finished. fetched {} messages. last message = {}".format(n, last_date))
 
     def new_client(self, session, config):
-        client = TelegramClient(session, config["api_id"], config["api_hash"])
-
+        if "proxy" in config and config["proxy"].get("enable"):
+            proxy = config["proxy"]
+            client = TelegramClient(session, config["api_id"], config["api_hash"], proxy=(proxy["protocol"], proxy["addr"], proxy["port"]))
+        else:
+            client = TelegramClient(session, config["api_id"], config["api_hash"])
         # hide log messages
         # upstream issue https://github.com/LonamiWebs/Telethon/issues/3840
         client_logger = client._log["telethon.client.downloads"]

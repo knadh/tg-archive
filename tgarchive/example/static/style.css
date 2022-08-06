@@ -310,6 +310,8 @@ div.body > div.text {
 
 .pagination {
 	text-align: right;
+	overflow-y: auto;
+	max-height: 100px;
 }
 	.pagination li {
 		display: inline-block;

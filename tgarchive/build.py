@@ -102,11 +102,11 @@ class Build:
 
     def load_template(self, fname):
         with open(fname, "r") as f:
-            self.template = Template(f.read())
+            self.template = Template(f.read(), autoescape=True)
 
     def load_rss_template(self, fname):
         with open(fname, "r") as f:
-            self.rss_template = Template(f.read())
+            self.rss_template = Template(f.read(), autoescape=True)
 
     def make_filename(self, month, page) -> str:
         fname = "{}{}.html".format(

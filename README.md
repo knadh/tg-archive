@@ -27,6 +27,7 @@ tg-archive uses the [Telethon](https://github.com/LonamiWebs/Telethon) Telegram 
 
 ## Install
 - Get [Telegram API credentials](https://my.telegram.org/auth?to=apps). Normal user account API and not the Bot API.
+  - If this page produces an alert stating only "ERROR", disconnect from any proxy/vpn and try again in a different browser.
 - Install with `pip3 install tg-archive` (tested with Python 3.8.6).
 
 ### Usage

@@ -50,6 +50,7 @@ fetch_wait: 5
 fetch_limit: 0
 
 publish_dir: "site"
+publish_timezone: "America/New_York"
 static_dir: "static"
 per_page: 500
 show_day_index: True

@@ -10,6 +10,7 @@ from datetime import timezone
 
 from feedgen.feed import FeedGenerator
 from jinja2 import Template
+import pytz
 
 from .db import User, Message
 
@@ -143,7 +144,9 @@ class Build:
             e = f.add_entry()
             e.id(url)
             e.title("@{} on {} (#{})".format(m.user.username, m.date, m.id))
-            e.published(m.date.replace(tzinfo=timezone.utc))
+            # e.published(m.date.replace(tzinfo=timezone.utc))
+            # e.published(m.date.replace(tzinfo=self.config["publish_timezone"]))
+            e.published(m.date.replace(tzinfo=pytz.utc).astimezone(pytz.timezone(self.config["publish_timezone"])))
             e.link({"href": url})
 
             media_mime = ""

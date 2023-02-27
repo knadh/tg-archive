@@ -7,7 +7,7 @@ import yaml
 
 from .db import DB
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 logging.basicConfig(format="%(asctime)s: %(message)s",
                     level=logging.INFO)
@@ -37,6 +37,7 @@ _CONFIG = {
     "telegram_url": "https://t.me/{id}",
     "per_page": 1000,
     "show_sender_fullname": False,
+    "timezone": "",
     "site_name": "@{group} (Telegram) archive",
     "site_description": "Public archive of @{group} Telegram messages.",
     "meta_description": "@{group} {date} Telegram message archive.",
@@ -153,7 +154,7 @@ def main():
 
         logging.info("building site")
         config = get_config(args.config)
-        b = Build(config, DB(args.data), args.symlink)
+        b = Build(config, DB(args.data, config["timezone"]), args.symlink)
         b.load_template(args.template)
         if args.rss_template:
             b.load_rss_template(args.rss_template)

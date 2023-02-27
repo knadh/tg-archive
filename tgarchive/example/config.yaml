@@ -61,6 +61,11 @@ telegram_url: "https://t.me/{id}"
 # phonebook for users who are in your phonebook.
 show_sender_fullname: False
 
+# Timezone to apply on timestamps when building the site. If no value
+# is specified, all timestamps are in UTC:
+# Eg: US/Eastern  Asia/Kolkata
+timezone: ""
+
 publish_rss_feed: True
 rss_feed_entries: 100 # Show Latest N messages in the RSS feed.
 

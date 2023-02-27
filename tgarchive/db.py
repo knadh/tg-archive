@@ -4,7 +4,7 @@ import os
 import sqlite3
 from collections import namedtuple
 from datetime import datetime
-import json
+import pytz
 from typing import Iterator
 
 schema = """
@@ -60,8 +60,9 @@ def _page(n, multiple):
 
 class DB:
     conn = None
+    tz = None
 
-    def __init__(self, dbfile):
+    def __init__(self, dbfile, tz=None):
         # Initialize the SQLite DB. If it's new, create the table schema.
         is_new = not os.path.isfile(dbfile)
 
@@ -71,6 +72,9 @@ class DB:
         # Add the custom PAGE() function to get the page number of a row
         # by its row number and a limit multiple.
         self.conn.create_function("PAGE", 2, _page)
+
+        if tz:
+            self.tz = pytz.timezone(tz)
 
         if is_new:
             for s in schema.split("##"):
@@ -224,6 +228,13 @@ class DB:
                        title=media_title,
                        description=desc,
                        thumb=media_thumb)
+
+        date = pytz.utc.localize(date) if date else None
+        edit_date = pytz.utc.localize(edit_date) if edit_date else None
+
+        if self.tz:
+            date = date.astimezone(self.tz) if date else None
+            edit_date = edit_date.astimezone(self.tz) if edit_date else None
 
         return Message(id=id,
                        type=typ,

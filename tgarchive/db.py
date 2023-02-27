@@ -110,9 +110,13 @@ class DB:
         """)
 
         for r in cur.fetchall():
-            yield Month(date=r[0],
-                        slug=r[0].strftime("%Y-%m"),
-                        label=r[0].strftime("%b %Y"),
+            date = pytz.utc.localize(r[0])
+            if self.tz:
+                date = date.astimezone(self.tz)
+
+            yield Month(date=date,
+                        slug=date.strftime("%Y-%m"),
+                        label=date.strftime("%b %Y"),
                         count=r[1])
 
     def get_dayline(self, year, month, limit=500) -> Iterator[Day]:
@@ -132,9 +136,13 @@ class DB:
         """, (limit, "{}{:02d}".format(year, month)))
 
         for r in cur.fetchall():
-            yield Day(date=r[0],
-                      slug=r[0].strftime("%Y-%m-%d"),
-                      label=r[0].strftime("%d %b %Y"),
+            date = pytz.utc.localize(r[0])
+            if self.tz:
+                date = date.astimezone(self.tz)
+
+            yield Day(date=date,
+                      slug=date.strftime("%Y-%m-%d"),
+                      label=date.strftime("%d %b %Y"),
                       count=r[1],
                       page=r[2])
 

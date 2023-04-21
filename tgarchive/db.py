@@ -21,7 +21,6 @@ CREATE table messages (
     from_id INTEGER,
     user_id INTEGER,
     media_id INTEGER,
-    message_fwd_header_id INTEGER,
     FOREIGN KEY(user_id) REFERENCES users(id),
     FOREIGN KEY(media_id) REFERENCES media(id)
 );

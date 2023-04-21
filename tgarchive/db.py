@@ -222,7 +222,7 @@ class DB:
                     )
 
     def insert_message_fwd_header(self, m: MessageFwdHeader):
-        print(m)
+        # print(m)
         from_id_channel_id = None
         from_id_user_id = None
         

@@ -7,6 +7,9 @@ from datetime import datetime
 import pytz
 from typing import Iterator
 
+
+
+                     
 schema = """
 CREATE table messages (
     id INTEGER NOT NULL PRIMARY KEY,
@@ -15,8 +18,10 @@ CREATE table messages (
     edit_date TIMESTAMP,
     content TEXT,
     reply_to INTEGER,
+    from_id INTEGER,
     user_id INTEGER,
     media_id INTEGER,
+    message_fwd_header_id INTEGER,
     FOREIGN KEY(user_id) REFERENCES users(id),
     FOREIGN KEY(media_id) REFERENCES media(id)
 );
@@ -29,6 +34,22 @@ CREATE table users (
     tags TEXT,
     avatar TEXT
 );
+##
+CREATE table message_fwd_header (
+    id INTEGER NOT NULL PRIMARY KEY,
+    date TIMESTAMP NOT NULL,
+    imported INTEGER,
+    from_id_channel_id TEXT,
+    from_id_user_id TEXT,
+    from_name TEXT,
+    channel_post TEXT,
+    post_author TEXT,
+    saved_from_peer TEXT,
+    saved_from_msg_id TEXT,
+    psa_type TEXT
+);
+
+
 ##
 CREATE table media (
     id INTEGER NOT NULL PRIMARY KEY,
@@ -44,11 +65,14 @@ User = namedtuple(
     "User", ["id", "username", "first_name", "last_name", "tags", "avatar"])
 
 Message = namedtuple(
-    "Message", ["id", "type", "date", "edit_date", "content", "reply_to", "user", "media"])
+    "Message", ["id", "type", "date", "edit_date", "content", "reply_to","from_id", "user", "media","message_fwd_header"])
 
 Media = namedtuple(
     "Media", ["id", "type", "url", "title", "description", "thumb"])
 
+MessageFwdHeader = namedtuple(
+	"MessageFwdHeader", ["date","imported","from_id","from_name","channel_post","post_author","saved_from_peer","saved_from_msg_id","psa_type"])
+ 
 Month = namedtuple("Month", ["date", "slug", "label", "count"])
 
 Day = namedtuple("Day", ["date", "slug", "label", "count", "page"])
@@ -198,17 +222,44 @@ class DB:
                      m.thumb)
                     )
 
+    def insert_message_fwd_header(self, m: MessageFwdHeader):
+        print(m)
+        from_id_channel_id = None
+        from_id_user_id = None
+        
+        if hasattr(m.from_id,'channel_id'):
+        	from_id_channel_id = m.from_id.channel_id
+        if hasattr(m.from_id,'user_id'):
+        	from_id_user_id = m.from_id.user_id
+        	
+        cur = self.conn.cursor()
+        cur.execute("""INSERT OR REPLACE INTO message_fwd_header
+            (date, imported, from_id_channel_id,from_id_user_id, from_name, channel_post, post_author, saved_from_peer, saved_from_msg_id, psa_type)
+            VALUES(?, ?, ?, ?, ?, ?, ?,?, ?, ?)""",
+                    (m.date,
+                     m.imported,
+                     from_id_channel_id,
+                     from_id_user_id,
+                     m.from_name,
+                     m.channel_post,
+                     m.post_author,
+                     m.saved_from_peer,
+                     m.saved_from_msg_id,
+                     m.psa_type)
+                    )
+
     def insert_message(self, m: Message):
         cur = self.conn.cursor()
         cur.execute("""INSERT OR REPLACE INTO messages
-            (id, type, date, edit_date, content, reply_to, user_id, media_id)
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?)""",
+            (id, type, date, edit_date, content, from_id, reply_to, user_id, media_id)
+            VALUES(?, ?, ?, ?, ?, ?,  ?, ?,? )""",
                     (m.id,
                      m.type,
                      m.date.strftime("%Y-%m-%d %H:%M:%S"),
                      m.edit_date.strftime(
                          "%Y-%m-%d %H:%M:%S") if m.edit_date else None,
                      m.content,
+                     m.from_id,
                      m.reply_to,
                      m.user.id,
                      m.media.id if m.media else None)
@@ -222,8 +273,21 @@ class DB:
         """Makes a Message() object from an SQL result tuple."""
         id, typ, date, edit_date, content, reply_to, \
             user_id, username, first_name, last_name, tags, avatar, \
-            media_id, media_type, media_url, media_title, media_description, media_thumb = m
+            media_id, media_type, media_url, media_title, media_description, from_id,  media_thumb = m
 
+        fwd = None
+        if fwd_from:
+   
+            	
+            imported = pytz.utc.localize(imported) if imported else None
+            fwd = MessageFwdHeader(id=id,
+                     imported=imported,
+                     from_id=from_id,
+                     post_author=post_author,
+                     saved_from_peer=saved_from_peer,
+                     saved_from_msg_id=saved_from_msg_id,
+                     psa_type=psa_type)
+        
         md = None
         if media_id:
             desc = media_description
@@ -250,10 +314,12 @@ class DB:
                        edit_date=edit_date,
                        content=content,
                        reply_to=reply_to,
+                       from_id=from_id,
                        user=User(id=user_id,
                                  username=username,
                                  first_name=first_name,
                                  last_name=last_name,
                                  tags=tags,
                                  avatar=avatar),
-                       media=md)
+                       media=md,
+                       message_fwd_header=fwd)

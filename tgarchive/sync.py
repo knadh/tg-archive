@@ -66,6 +66,9 @@ class Sync:
 
                 if m.media:
                     self.db.insert_media(m.media)
+                    
+                if m.message_fwd_header:
+                    self.db.insert_message_fwd_header(m.message_fwd_header)
 
                 self.db.insert_message(m)
 
@@ -149,10 +152,14 @@ class Sync:
         for m in messages:
             if not m or not m.sender:
                 continue
-
+            print(m)
             # Media.
             sticker = None
             med = None
+            fwd_from = None
+            if m.fwd_from:
+            	fwd_from = m.fwd_from
+            	
             if m.media:
                 # If it's a sticker, get the alt value (unicode emoji).
                 if isinstance(m.media, telethon.tl.types.MessageMediaDocument) and \
@@ -168,6 +175,14 @@ class Sync:
                     med = self._get_media(m)
 
             # Message.
+            if not hasattr(m, 'from_name'):
+            	m.from_name = None
+            if not hasattr(m, 'from_id'):
+            	m.from_id = m.from_id
+            	
+            
+            #print(m)
+            print("--------------------------------------------");
             typ = "message"
             if m.action:
                 if isinstance(m.action, telethon.tl.types.MessageActionChatAddUser):
@@ -182,8 +197,10 @@ class Sync:
                 edit_date=m.edit_date,
                 content=sticker if sticker else m.raw_text,
                 reply_to=m.reply_to_msg_id if m.reply_to and m.reply_to.reply_to_msg_id else None,
+                from_id=m.from_id,
                 user=self._get_user(m.sender),
-                media=med
+                media=med,
+                message_fwd_header=fwd_from
             )
 
     def _fetch_messages(self, group, offset_id, ids=None) -> Message:

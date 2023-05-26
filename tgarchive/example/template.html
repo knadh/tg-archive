@@ -158,7 +158,7 @@
 										</div>
 										
 										{% elif m.media.type == "photo" %}
-											{% set video_extensions = video_types = ['.mp4', '.webm', '.ogg', '.ogv', '.mov']%}  <!-- Add more video extensions if needed -->
+											{% set video_extensions = ['.mp4', '.webm', '.ogg', '.ogv', '.mov']%}  <!-- Add more video extensions if needed -->
 											{% set video = namespace(found=False) %}
 											{% for ext in video_extensions %}
 												{% if ext in m.media.url %}

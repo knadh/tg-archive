@@ -132,6 +132,7 @@
 									{% endif %}
 								{% endif %}
 							</div>
+							{% if m.media %}
 								<div class="media">
 									{% if m.media.type == "webpage" and (m.media.title or m.media.description) %}
 										<a href="{{ m.media.url }}" rel="noreferer nopener nofollow">{{ m.media.title or "Link" }}</a>
@@ -177,8 +178,9 @@
 										</a>
 									{% else %}
 										<a href="{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a>
+									{% endif %}
 								</div>
-								{% endif %}
+							{% endif %}
 						</div>
 					</li>
 				{% endfor %}

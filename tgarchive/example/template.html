@@ -154,28 +154,22 @@
 													</li>
 												{% endfor %}
 											</ul>
-										</div>
-
-										
-										{% elif m.media.type == "photo" %}
-											{% set ext = m.media.url.split('/')[-1].split('.')[-1] %}
-											{% if ext in ['mp4', 'webm', 'ogg', 'ogv', 'mov'] %}
-												<video width="100%" height="100%" controls>
-													<source src="{{ config.media_dir }}/{{ m.media.url }}">
-												</video>
-												<a href="{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a>
-											{% else %}
-												<a href="{{ config.media_dir }}/{{ m.media.url }}">
-													<img src="{{ config.media_dir }}/{{ m.media.thumb }}" class="thumb" /><br />
-													<span class="filename">{{ m.media.title }}</span>
-												</a>
-											{% endif %}
-
-									{% elif m.media.thumb %}
-										<a href="{{ config.media_dir }}/{{ m.media.url }}">
-											<img src="{{ config.media_dir }}/{{ m.media.thumb }}" class="thumb" /><br />
-											<span class="filename">{{ m.media.title }}</span>
-										</a>
+										</div>									
+									{% elif m.media.type == "photo" %}
+										{% set ext = m.media.url.split('/')[-1].split('.')[-1] %}
+										{% if ext in ['mp4', 'webm', 'ogg', 'ogv', 'mov'] %}
+											<video controls>
+												<source src="{{ config.media_dir }}/{{ m.media.url }}">
+											</video>
+											<p><a href="{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a></p>
+										{% elif m.media.thumb %}
+											<a href="{{ config.media_dir }}/{{ m.media.url }}">
+												<img src="{{ config.media_dir }}/{{ m.media.thumb }}" class="thumb" /><br />
+												<span class="filename">{{ m.media.title }}</span>
+											</a>
+										{% else %}
+											<a href="{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a>
+										{% endif %}
 									{% else %}
 										<a href="{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a>
 									{% endif %}

@@ -357,7 +357,7 @@ class Sync:
             return None
 
         im = Image.open(b)
-        im.thumbnail(self.config["avatar_size"], Image.ANTIALIAS)
+        im.thumbnail(self.config["avatar_size"], Image.LANCZOS)
         im.save(fpath, "JPEG")
 
         return fname

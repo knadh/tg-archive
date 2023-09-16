@@ -16,6 +16,7 @@ group: "your_group_name or your_group_username or your_group_id(a negative numbe
 download_media: True
 download_avatars: True
 avatar_size: [64, 64] # Width, Height.
+sticker_size: 50%  # Inline sticker.webp img width
 media_dir: "media"
 
 # The list of media/file mime types (in lowercase) to download.

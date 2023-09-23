@@ -162,6 +162,10 @@
 												<source src="{{ config.media_dir }}/{{ m.media.url }}">
 											</video>
 											<p><a href="{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a></p>
+										{% elif ext in ['webp'] %}
+											<a href="{{ config.media_dir }}/{{ m.media.url }}">
+												<img src="{{ config.media_dir }}/{{ m.media.url }}" class="media-webp" />
+											</a>
 										{% elif m.media.thumb %}
 											<a href="{{ config.media_dir }}/{{ m.media.url }}">
 												<img src="{{ config.media_dir }}/{{ m.media.thumb }}" class="thumb" /><br />

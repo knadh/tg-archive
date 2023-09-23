@@ -287,6 +287,9 @@ div.body > div.text {
 			height: auto;
 			width: 500px;
 		}
+		.messages .media .media-webp {
+			width: 50%;
+		}
 
 	.messages .poll .title {
 		margin: 0;

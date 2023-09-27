@@ -131,9 +131,7 @@ class Sync:
                     input()
                     logging.info("trying again.. ({})".format(retry + 2))
                 except errors.TakeoutInvalidError:
-                    logging.info(
-                        "takeout invalidated. delete the session.session file and try again.")
-                    raise
+                    logging.info("takeout invalidated. delete the session.session file and try again.")
             else:
                 logging.info("could not initiate takeout.")
                 raise(Exception("could not initiate takeout."))

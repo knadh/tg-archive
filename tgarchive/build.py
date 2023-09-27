@@ -149,13 +149,22 @@ class Build:
             if m.media and m.media.url:
                 murl = "{}/{}/{}".format(self.config["site_url"],
                                          os.path.basename(self.config["media_dir"]), m.media.url)
-                try:
-                    media_path = "{}/{}".format(self.config["media_dir"], m.media.url)
-                    media_mime = magic.from_file(media_path, mime=True)
-                    media_size = str(os.path.getsize(media_path))
-                except FileNotFoundError:
-                    media_mime = "application/octet-stream"
-                    media_size = 0
+                media_path = "{}/{}".format(self.config["media_dir"], m.media.url)
+                media_mime = "application/octet-stream"
+                media_size = 0
+
+                if "://" in media_path:
+                    media_mime = "text/html"
+                else:
+                    try:
+                        media_size = str(os.path.getsize(media_path))
+                        try:
+                            media_mime = magic.from_file(media_path, mime=True)
+                        except:
+                            pass
+                    except FileNotFoundError:
+                        pass
+
                 e.enclosure(murl, media_size, media_mime)
             e.content(self._make_abstract(m, media_mime), type="html")
 

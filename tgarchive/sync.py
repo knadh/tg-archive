@@ -96,8 +96,11 @@ class Sync:
 
     def new_client(self, session, config):
         if "proxy" in config and config["proxy"].get("enable"):
+            # support windows
+            # upstream issue https://github.com/LonamiWebs/Telethon/issues/3962
+            mapping = {'socks4': 1, 'socks5': 2, 'http': 3}
             proxy = config["proxy"]
-            client = TelegramClient(session, config["api_id"], config["api_hash"], proxy=(proxy["protocol"], proxy["addr"], proxy["port"]))
+            client = TelegramClient(session, config["api_id"], config["api_hash"], proxy=(mapping.get(proxy['protocol']), proxy['addr'], proxy['port']))
         else:
             client = TelegramClient(session, config["api_id"], config["api_hash"])
         # hide log messages

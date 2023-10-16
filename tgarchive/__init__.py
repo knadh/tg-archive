@@ -7,7 +7,7 @@ import yaml
 
 from .db import DB
 
-__version__ = "1.1.3"
+__version__ = "1.1.4"
 
 logging.basicConfig(format="%(asctime)s: %(message)s",
                     level=logging.INFO)
@@ -113,7 +113,7 @@ def main():
             raise
 
         logging.info("created directory '{}'".format(args.path))
-        
+
         # make sure the files are writable
         os.chmod(args.path, 0o755)
         for root, dirs, files in os.walk(args.path):

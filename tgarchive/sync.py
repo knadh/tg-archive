@@ -170,6 +170,8 @@ class Sync:
             if m.action:
                 if isinstance(m.action, telethon.tl.types.MessageActionChatAddUser):
                     typ = "user_joined"
+                elif isinstance(m.action, telethon.tl.types.MessageActionChatJoinedByLink):
+                    typ = "user_joined_by_link"
                 elif isinstance(m.action, telethon.tl.types.MessageActionChatDeleteUser):
                     typ = "user_left"
 

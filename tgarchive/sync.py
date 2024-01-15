@@ -145,7 +145,7 @@ class Sync:
         messages = self._fetch_messages(group, offset_id, ids)
         # https://docs.telethon.dev/en/latest/quick-references/objects-reference.html#message
         for m in messages:
-            if not m or not m.sender:
+            if not m:
                 continue
 
             # Media.
@@ -180,7 +180,7 @@ class Sync:
                 edit_date=m.edit_date,
                 content=sticker if sticker else m.raw_text,
                 reply_to=m.reply_to_msg_id if m.reply_to and m.reply_to.reply_to_msg_id else None,
-                user=self._get_user(m.sender),
+                user=self._get_user(m.sender, m.chat),
                 media=med
             )
 
@@ -200,8 +200,27 @@ class Sync:
             logging.info(
                 "flood waited: have to wait {} seconds".format(e.seconds))
 
-    def _get_user(self, u) -> User:
+    def _get_user(self, u, chat) -> User:
         tags = []
+
+        # if user info is empty, check for message from group
+        if (
+            u is None and
+            self.config["detect_group_posts"] and
+            chat is not None and
+            chat.title != ''
+            ):
+                tags.append("group_self")
+                avatar = self._downloadAvatarForUserOrChat(chat)
+                return User(
+                    id=chat.id,
+                    username=chat.title,
+                    first_name=None,
+                    last_name=None,
+                    tags=tags,
+                    avatar=avatar
+                )
+
         is_normal_user = isinstance(u, telethon.tl.types.User)
 
         if isinstance(u, telethon.tl.types.ChannelForbidden):
@@ -225,14 +244,7 @@ class Sync:
             tags.append("fake")
 
         # Download sender's profile photo if it's not already cached.
-        avatar = None
-        if self.config["download_avatars"]:
-            try:
-                fname = self._download_avatar(u)
-                avatar = fname
-            except Exception as e:
-                logging.error(
-                    "error downloading avatar: #{}: {}".format(u.id, e))
+        avatar = self._downloadAvatarForUserOrChat(u)
 
         return User(
             id=u.id,
@@ -389,3 +401,14 @@ class Sync:
             exit(1)
 
         return entity.id
+
+    def _downloadAvatarForUserOrChat(self, entity):
+        avatar = None
+        if self.config["download_avatars"]:
+            try:
+                fname = self._download_avatar(entity)
+                avatar = fname
+            except Exception as e:
+                logging.error(
+                    "error downloading avatar: #{}: {}".format(entity.id, e))
+        return avatar

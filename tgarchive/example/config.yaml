@@ -18,6 +18,9 @@ download_avatars: True
 avatar_size: [64, 64] # Width, Height.
 media_dir: "media"
 
+# Autodetect and save as messages posts from group (https://github.com/knadh/tg-archive/issues/54)
+detect_group_posts: True
+
 # The list of media/file mime types (in lowercase) to download.
 # eg: ["image/gif", "image/jpeg", "image/png", "video/mp4", "application/zip", "application/pdf"]
 # If left empty, files of all types are downloaded.

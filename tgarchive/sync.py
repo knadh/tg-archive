@@ -208,7 +208,6 @@ class Sync:
         # if user info is empty, check for message from group
         if (
             u is None and
-            self.config["detect_group_posts"] and
             chat is not None and
             chat.title != ''
             ):

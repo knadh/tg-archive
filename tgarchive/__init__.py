@@ -19,7 +19,6 @@ _CONFIG = {
     "download_avatars": True,
     "avatar_size": [64, 64],
     "download_media": False,
-    "detect_group_posts": True,
     "media_dir": "media",
     "media_mime_types": [],
     "proxy": {

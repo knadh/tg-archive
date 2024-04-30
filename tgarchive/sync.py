@@ -53,6 +53,7 @@ class Sync:
         n = 0
         while True:
             has = False
+            messages_ids = []
             for m in self._get_messages(group_id,
                                         offset_id=last_id if last_id else 0,
                                         ids=ids):
@@ -68,6 +69,7 @@ class Sync:
                     self.db.insert_media(m.media)
 
                 self.db.insert_message(m)
+                messages_ids.append(m.id)
 
                 last_date = m.date
                 n += 1
@@ -87,6 +89,9 @@ class Sync:
                 time.sleep(self.config["fetch_wait"])
             else:
                 break
+
+            if self.config.get('delete_messages', False):
+                self.client.delete_messages(group_id, messages_ids)
 
         self.db.commit()
         if self.config.get("use_takeout", False):

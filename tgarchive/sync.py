@@ -49,6 +49,7 @@ class Sync:
                 last_id, last_date))
 
         group_id = self._get_group_id(self.config["group"])
+        delete_messages_option = int(self.config.get('delete_messages', 0))
 
         n = 0
         while True:
@@ -89,9 +90,11 @@ class Sync:
                 time.sleep(self.config["fetch_wait"])
             else:
                 break
-
-            if self.config.get('delete_messages', False):
-                self.client.delete_messages(group_id, messages_ids)
+            
+            if delete_messages_option > 0:
+                revoke = delete_messages_option == 2
+                self.client.delete_messages(group_id, messages_ids, revoke)
+                logging.info("deleted {} messages".format(len(messages_ids)))
 
         self.db.commit()
         if self.config.get("use_takeout", False):

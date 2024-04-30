@@ -49,6 +49,11 @@ fetch_wait: 5
 # Set to 0 to never stop until all messages have been fetched.
 fetch_limit: 0
 
+# If messages should be deleted after fetching them.
+# Set to 1 to delete messages just for you.
+# Set to 2 to delete messages for everyone.
+delete_messages: 0
+
 publish_dir: "site"
 static_dir: "static"
 per_page: 500

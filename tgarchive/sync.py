@@ -93,7 +93,7 @@ class Sync:
             
             if delete_messages_option > 0:
                 revoke = delete_messages_option == 2
-                self.client.delete_messages(group_id, messages_ids, revoke)
+                self.client.delete_messages(group_id, messages_ids, revoke=revoke)
                 logging.info("deleted {} messages".format(len(messages_ids)))
 
         self.db.commit()

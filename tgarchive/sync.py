@@ -34,11 +34,12 @@ class Sync:
     def on_batch_end(self, group_id, messages_ids):
         self.db.commit()
 
-        delete_messages_option = int(self.config.get('delete_messages', 0))
-        if delete_messages_option > 0:
-            revoke = delete_messages_option == 2
-            self.client.delete_messages(group_id, messages_ids, revoke=revoke)
-            logging.info("deleted {} messages".format(len(messages_ids)))
+        if len(messages_ids) > 0:
+            delete_messages_option = int(self.config.get('delete_messages', 0))
+            if delete_messages_option > 0:
+                revoke = delete_messages_option == 2
+                self.client.delete_messages(group_id, messages_ids, revoke=revoke)
+                logging.info("deleted {} messages".format(len(messages_ids)))
 
     def sync(self, ids=None, from_id=None):
         """

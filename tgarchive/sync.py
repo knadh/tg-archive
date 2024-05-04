@@ -30,6 +30,15 @@ class Sync:
 
         if not os.path.exists(self.config["media_dir"]):
             os.mkdir(self.config["media_dir"])
+    
+    def on_batch_end(self, group_id, messages_ids):
+        self.db.commit()
+
+        delete_messages_option = int(self.config.get('delete_messages', 0))
+        if delete_messages_option > 0:
+            revoke = delete_messages_option == 2
+            self.client.delete_messages(group_id, messages_ids, revoke=revoke)
+            logging.info("deleted {} messages".format(len(messages_ids)))
 
     def sync(self, ids=None, from_id=None):
         """
@@ -49,7 +58,6 @@ class Sync:
                 last_id, last_date))
 
         group_id = self._get_group_id(self.config["group"])
-        delete_messages_option = int(self.config.get('delete_messages', 0))
 
         n = 0
         while True:
@@ -76,13 +84,16 @@ class Sync:
                 n += 1
                 if n % 300 == 0:
                     logging.info("fetched {} messages".format(n))
-                    self.db.commit()
+                    self.on_batch_end(group_id, messages_ids)
+                    messages_ids = []
 
                 if 0 < self.config["fetch_limit"] <= n or ids:
                     has = False
                     break
 
-            self.db.commit()
+            self.on_batch_end(group_id, messages_ids)
+            messages_ids = []
+
             if has:
                 last_id = m.id
                 logging.info("fetched {} messages. sleeping for {} seconds".format(
@@ -90,13 +101,10 @@ class Sync:
                 time.sleep(self.config["fetch_wait"])
             else:
                 break
-            
-            if delete_messages_option > 0:
-                revoke = delete_messages_option == 2
-                self.client.delete_messages(group_id, messages_ids, revoke=revoke)
-                logging.info("deleted {} messages".format(len(messages_ids)))
+        
 
-        self.db.commit()
+        self.on_batch_end(group_id, messages_ids)
+
         if self.config.get("use_takeout", False):
             self.finish_takeout()
         logging.info(

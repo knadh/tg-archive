@@ -111,6 +111,13 @@ class Sync:
         logging.info(
             "finished. fetched {} messages. last message = {}".format(n, last_date))
 
+        delete_chat_option = int(self.config.get('delete_chat', 0))
+        if delete_chat_option > 0:
+            revoke = delete_chat_option == 2
+            self.client.delete_dialogs([group_id], revoke=revoke)
+            logging.info("deleted chat")
+
+
     def new_client(self, session, config):
         if "proxy" in config and config["proxy"].get("enable"):
             proxy = config["proxy"]

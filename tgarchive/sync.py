@@ -114,7 +114,7 @@ class Sync:
         delete_chat_option = int(self.config.get('delete_chat', 0))
         if delete_chat_option > 0:
             revoke = delete_chat_option == 2
-            self.client.delete_dialogs([group_id], revoke=revoke)
+            self.client.delete_dialog(group_id, revoke=revoke)
             logging.info("deleted chat")
 
 

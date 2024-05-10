@@ -30,6 +30,16 @@ class Sync:
 
         if not os.path.exists(self.config["media_dir"]):
             os.mkdir(self.config["media_dir"])
+    
+    def on_batch_end(self, group_id, messages_ids):
+        self.db.commit()
+
+        if len(messages_ids) > 0:
+            delete_messages_option = int(self.config.get('delete_messages', 0))
+            if delete_messages_option > 0:
+                revoke = delete_messages_option == 2
+                self.client.delete_messages(group_id, messages_ids, revoke=revoke)
+                logging.info("deleted {} messages".format(len(messages_ids)))
 
     def sync(self, ids=None, from_id=None):
         """
@@ -53,6 +63,7 @@ class Sync:
         n = 0
         while True:
             has = False
+            messages_ids = []
             for m in self._get_messages(group_id,
                                         offset_id=last_id if last_id else 0,
                                         ids=ids):
@@ -68,18 +79,22 @@ class Sync:
                     self.db.insert_media(m.media)
 
                 self.db.insert_message(m)
+                messages_ids.append(m.id)
 
                 last_date = m.date
                 n += 1
                 if n % 300 == 0:
                     logging.info("fetched {} messages".format(n))
-                    self.db.commit()
+                    self.on_batch_end(group_id, messages_ids)
+                    messages_ids = []
 
                 if 0 < self.config["fetch_limit"] <= n or ids:
                     has = False
                     break
 
-            self.db.commit()
+            self.on_batch_end(group_id, messages_ids)
+            messages_ids = []
+
             if has:
                 last_id = m.id
                 logging.info("fetched {} messages. sleeping for {} seconds".format(
@@ -87,12 +102,21 @@ class Sync:
                 time.sleep(self.config["fetch_wait"])
             else:
                 break
+        
 
-        self.db.commit()
+        self.on_batch_end(group_id, messages_ids)
+
         if self.config.get("use_takeout", False):
             self.finish_takeout()
         logging.info(
             "finished. fetched {} messages. last message = {}".format(n, last_date))
+
+        delete_chat_option = int(self.config.get('delete_chat', 0))
+        if delete_chat_option > 0:
+            revoke = delete_chat_option == 2
+            self.client.delete_dialog(group_id, revoke=revoke)
+            logging.info("deleted chat")
+
 
     def new_client(self, session, config):
         if "proxy" in config and config["proxy"].get("enable"):

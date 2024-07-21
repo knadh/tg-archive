@@ -312,7 +312,8 @@ div.body > div.text {
 			min-width: 3px;
 		}
 
-	.messages .type-user_joined .text {
+	.messages .type-user_joined .text,
+	.messages .type-user_joined_by_link .text {
 		color: var(--light);
 		font-style: italic;
 	}

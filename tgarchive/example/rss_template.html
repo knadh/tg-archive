@@ -35,6 +35,8 @@
       {% else %}
       {% if m.type == "user_joined" %}
       Joined.
+      {% elif m.type == "user_joined_by_link" %}
+      Joined by invite link.
       {% elif m.type == "user_left" %}
       Left.
       {% endif %}

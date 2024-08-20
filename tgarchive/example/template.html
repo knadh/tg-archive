@@ -158,8 +158,8 @@
 											</ul>
 										</div>									
 									{% elif m.media.type == "photo" %}
-										{% set ext = m.media.url.split('/')[-1].split('.')[-1] %}
-										{% if ext in ['mp4', 'webm', 'ogg', 'ogv', 'mov'] %}
+										{% set ext = m.media.url.split('/')[-1].split('.')[-1].lower() %}
+										{% if ext in ['mp4', 'webm', 'ogg', 'ogv', 'oga', 'mov'] %}
 											<video controls>
 												<source src="{{ config.media_dir }}/{{ m.media.url }}">
 											</video>

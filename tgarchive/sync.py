@@ -115,6 +115,7 @@ class Sync:
         client_logger.info = patched_info
 
         client.start()
+        client.parse_mode = 'html'
         if config.get("use_takeout", False):
             for retry in range(3):
                 try:
@@ -142,6 +143,7 @@ class Sync:
         self.client.__exit__(None, None, None)
 
     def _get_messages(self, group, offset_id, ids=None) -> Message:
+        msg_text_type = "text" if self.config.get("html_messages") else "raw_text"
         messages = self._fetch_messages(group, offset_id, ids)
         # https://docs.telethon.dev/en/latest/quick-references/objects-reference.html#message
         for m in messages:
@@ -180,7 +182,7 @@ class Sync:
                 id=m.id,
                 date=m.date,
                 edit_date=m.edit_date,
-                content=sticker if sticker else m.raw_text,
+                content=sticker if sticker else getattr(m, msg_text_type),
                 reply_to=m.reply_to_msg_id if m.reply_to and m.reply_to.reply_to_msg_id else None,
                 user=self._get_user(m.sender, m.chat),
                 media=med

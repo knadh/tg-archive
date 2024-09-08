@@ -324,7 +324,12 @@ async def process_groups():
         group_end_time = time.time()
         group_processing_time = group_end_time - group_start_time
         processing_times.append(group_processing_time)
+        avg_time = sum(processing_times) / len(processing_times)
+        remaining_groups = total_groups - index
+        estimated_completion_time = avg_time * remaining_groups
         print_cyan(group, f"Time taken to process this group: {humanize.naturaldelta(group_processing_time)}")
+        print_cyan(group, f"Average processing time: {humanize.naturaldelta(avg_time)}")
+        print_cyan(group, f"Estimated time to complete all groups: {humanize.naturaldelta(estimated_completion_time)}")
         generate_index_html(groups)
     
     end_time = time.time()

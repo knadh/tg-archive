@@ -132,46 +132,40 @@ def run_tg_archive(group):
     
     try:
         group_size = os.path.getsize(data_path) if os.path.exists(data_path) else 0
-        print(log_id + colorama.Fore.CYAN + f"Processing group {group_id} (Current size: {bytes_to_human(group_size)})" + colorama.Fore.RESET)
+        print(get_log_id(group_id, group_name, start_time) + colorama.Fore.CYAN + f"Processing group {group_id} (Current size: {bytes_to_human(group_size)})" + colorama.Fore.RESET)
         
-        print(log_id + colorama.Fore.GREEN + f"Running [sync] for group {group_id}, saving in {group_dir}" + colorama.Fore.RESET)
-        #print(colorama.Fore.GREEN + ' '.join(sync_command) + colorama.Fore.RESET)
-        start_time = time.time()
+        print(get_log_id(group_id, group_name, start_time) + colorama.Fore.GREEN + f"Running [sync] for group {group_id}, saving in {group_dir}" + colorama.Fore.RESET)
         with open(sync_log, 'w') as log_file:
             process = subprocess.Popen(sync_command, cwd="/session", stdout=log_file, stderr=subprocess.STDOUT)
             while process.poll() is None:
                 time.sleep(60)  # Wait for 1 minute
-                elapsed_time = time.time() - start_time
-                print(log_id + colorama.Fore.YELLOW + f" - time elapsed: {time.strftime('%H:%M:%S', time.gmtime(elapsed_time))}" + colorama.Fore.RESET)
                 dir_size = get_directory_size(group_dir)
-                print(log_id + colorama.Fore.YELLOW + f" - size: {bytes_to_human(dir_size)}" + colorama.Fore.RESET)
+                print(get_log_id(group_id, group_name, start_time) + colorama.Fore.YELLOW + f" - size: {bytes_to_human(dir_size)}" + colorama.Fore.RESET)
             process.wait()
-        print(log_id + colorama.Fore.GREEN + f" - [sync] COMPLETED with returncode: {process.returncode}" + colorama.Fore.RESET)
+        print(get_log_id(group_id, group_name, start_time) + colorama.Fore.GREEN + f" - [sync] COMPLETED with returncode: {process.returncode}" + colorama.Fore.RESET)
         
         if process.returncode == 0:
-            print(log_id + colorama.Fore.GREEN + f"Successfully ran tg-archive sync for group {group_id}" + colorama.Fore.RESET)
+            print(get_log_id(group_id, group_name, start_time) + colorama.Fore.GREEN + f"Successfully ran tg-archive sync for group {group_id}" + colorama.Fore.RESET)
         else:
-            print(log_id + colorama.Fore.RED + f"Error running tg-archive sync for group {group_id}" + colorama.Fore.RESET)
+            print(get_log_id(group_id, group_name, start_time) + colorama.Fore.RED + f"Error running tg-archive sync for group {group_id}" + colorama.Fore.RESET)
             with open(sync_log, 'r') as log_file:
                 log_lines = log_file.readlines()
                 last_10_lines = log_lines[-10:]
                 error_message = f"Error running tg-archive sync for group {group_id}\nLast 10 lines of the sync log:\n" + "\n".join(last_10_lines)
-                print(log_id + colorama.Fore.RED + error_message + colorama.Fore.RESET)
+                print(get_log_id(group_id, group_name, start_time) + colorama.Fore.RED + error_message + colorama.Fore.RESET)
             return
         
-        print(log_id + colorama.Fore.GREEN + f" - Running [build] for group {group_id}" + colorama.Fore.RESET)
-        start_time = time.time()
+        print(get_log_id(group_id, group_name, start_time) + colorama.Fore.GREEN + f" - Running [build] for group {group_id}" + colorama.Fore.RESET)
         with open(build_log, 'w') as log_file:
             process = subprocess.Popen(build_command, cwd="/session", stdout=log_file, stderr=subprocess.STDOUT)
             while process.poll() is None:
                 time.sleep(60)  # Wait for 1 minute
-                elapsed_time = time.time() - start_time
-                print(log_id + colorama.Fore.YELLOW + f"Build in progress... Time elapsed: {time.strftime('%H:%M:%S', time.gmtime(elapsed_time))}" + colorama.Fore.RESET)
+                print(get_log_id(group_id, group_name, start_time) + colorama.Fore.YELLOW + "Build in progress..." + colorama.Fore.RESET)
             process.wait()
         if process.returncode == 0:
-            print(log_id + colorama.Fore.GREEN + f"Successfully ran tg-archive build for group {group_id}" + colorama.Fore.RESET)
+            print(get_log_id(group_id, group_name, start_time) + colorama.Fore.GREEN + f"Successfully ran tg-archive build for group {group_id}" + colorama.Fore.RESET)
         else:
-            print(log_id + colorama.Fore.RED + f"Error running tg-archive build for group {group_id}" + colorama.Fore.RESET)
+            print(get_log_id(group_id, group_name, start_time) + colorama.Fore.RED + f"Error running tg-archive build for group {group_id}" + colorama.Fore.RESET)
             with open(build_log, 'r') as log_file:
                 log_content = log_file.read()
                 if "jinja2.exceptions.UndefinedError: 'collections.OrderedDict object' has no attribute" in log_content:
@@ -179,14 +173,14 @@ def run_tg_archive(group):
                 else:
                     last_10_lines = log_content.splitlines()[-10:]
                     error_message = f"Error running tg-archive build for group {group_id}\nLast 10 lines of the build log:\n" + "\n".join(last_10_lines)
-                print(log_id + colorama.Fore.RED + error_message + colorama.Fore.RESET)
+                print(get_log_id(group_id, group_name, start_time) + colorama.Fore.RED + error_message + colorama.Fore.RESET)
             return
         
         final_size = os.path.getsize(data_path)
-        print(log_id + colorama.Fore.CYAN + f"Finished processing group {group_id} (Final size: {bytes_to_human(final_size)})" + colorama.Fore.RESET)
+        print(get_log_id(group_id, group_name, start_time) + colorama.Fore.CYAN + f"Finished processing group {group_id} (Final size: {bytes_to_human(final_size)})" + colorama.Fore.RESET)
     except Exception as e:
         error_message = f"Error running tg-archive for group {group_id}: {str(e)}"
-        print(log_id + colorama.Fore.RED + error_message + colorama.Fore.RESET)
+        print(get_log_id(group_id, group_name, start_time) + colorama.Fore.RED + error_message + colorama.Fore.RESET)
 
 import os
 import subprocess

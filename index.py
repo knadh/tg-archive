@@ -8,6 +8,12 @@ import asyncio
 from telethon import TelegramClient
 from telethon.tl.types import Channel, Chat
 
+import subprocess
+import colorama
+import time
+import humanize
+colorama.init(strip=False, autoreset=True)
+
 # Load API credentials from .env file
 API_ID = os.getenv('API_ID')
 API_HASH = os.getenv('API_HASH')
@@ -52,20 +58,23 @@ async def get_groups():
     async with TelegramClient(SESSION_ID, API_ID, API_HASH) as client:
         dialogs = await client.get_dialogs(archived=False)
         groups = []
-        print(f"Total dialogs fetched: {len(dialogs)}")
+        print(colorama.Fore.CYAN + f"Total dialogs fetched: {len(dialogs)}" + colorama.Fore.RESET)
+        i=0
         for d in dialogs:
             if not isinstance(d.entity, (Channel, Chat)):
                 continue
             # Check if the group is archived, if so, skip it
             if d.entity.left:
-                print(f"Skipping archived group: {d.name}")
+                print(colorama.Fore.RED + f"Skipping archived group: {d.name}" + colorama.Fore.RESET)
                 continue
-            print(d.name)
+            type = 'channel' if isinstance(d.entity, Channel) else 'group'
+            print(colorama.Fore.CYAN + f"[{i}] t.me/{d.name} ({type})" + colorama.Fore.RESET)
+            i+=1
             group_dir = create_group_directory(d.name, d.entity.id)
             groups.append({
                 'id': d.entity.id,
                 'name': d.name,
-                'type': 'channel' if isinstance(d.entity, Channel) else 'group',
+                'type': type,
                 'directory': group_dir
             })
         
@@ -85,12 +94,6 @@ def load_cached_groups():
                 return json.load(f)
     return None
 
-import subprocess
-
-import colorama
-import time
-import humanize
-
 def bytes_to_human(size):
     return humanize.naturalsize(size, binary=True)
 
@@ -108,7 +111,7 @@ def run_tg_archive(group_id, group_dir):
                     '--data', data_path, 
                     '--path', group_dir, 
                     '--session', SESSION_ID,
-                    '--rss-template', template
+                    '--template', template
                     ]
     
     sync_command = base_command + ['--sync']
@@ -119,10 +122,10 @@ def run_tg_archive(group_id, group_dir):
         print(colorama.Fore.CYAN + f"#Processing group {group_id} (Current size: {bytes_to_human(group_size)})" + colorama.Fore.RESET)
         
         print(colorama.Fore.GREEN + f"- Running [sync] for group {group_id}, saving in {group_dir}" + colorama.Fore.RESET)
-        print(colorama.Fore.GREEN + sync_command + colorama.Fore.RESET)
+        print(colorama.Fore.GREEN + ' '.join(sync_command) + colorama.Fore.RESET)
         start_time = time.time()
         with open(sync_log, 'w') as log_file:
-            process = subprocess.Popen(sync_command, cwd=group_dir, stdout=log_file, stderr=subprocess.STDOUT)
+            process = subprocess.Popen(sync_command, cwd="/session", stdout=log_file, stderr=subprocess.STDOUT)
             while process.poll() is None:
                 time.sleep(60)  # Wait for 1 minute
                 elapsed_time = time.time() - start_time
@@ -130,6 +133,8 @@ def run_tg_archive(group_id, group_dir):
                 dir_size = get_directory_size(group_dir)
                 print(colorama.Fore.YELLOW + f" - size: {bytes_to_human(dir_size)}" + colorama.Fore.RESET)
             process.wait()
+        print(f" - [sync] COMPLETED with returncode: {process.returncode}")
+        
         if process.returncode == 0:
             print(colorama.Fore.GREEN + f"- Successfully ran tg-archive sync for group {group_id}" + colorama.Fore.RESET)
         else:
@@ -143,10 +148,10 @@ def run_tg_archive(group_id, group_dir):
             return
         
         print(colorama.Fore.GREEN + f"- Running [build] for group {group_id}" + colorama.Fore.RESET)
-        print(colorama.Fore.GREEN + build_command + colorama.Fore.RESET)
+        print(colorama.Fore.GREEN + ' '.join(build_command) + colorama.Fore.RESET)
         start_time = time.time()
         with open(build_log, 'w') as log_file:
-            process = subprocess.Popen(build_command, cwd=group_dir, stdout=log_file, stderr=subprocess.STDOUT)
+            process = subprocess.Popen(build_command, cwd="/session", stdout=log_file, stderr=subprocess.STDOUT)
             while process.poll() is None:
                 time.sleep(60)  # Wait for 1 minute
                 elapsed_time = time.time() - start_time
@@ -186,11 +191,9 @@ def process_groups():
     cache_groups(groups)
     for group in groups:
         dir_size = get_directory_size(group['directory'])
-        print(f"ID: {group['id']}, Name: {group['name']}, Type: {group['type']}, Size: {bytes_to_human(dir_size)}")
+        print(colorama.Fore.CYAN + f"ID: {group['id']}, Name: {group['name']}, Type: {group['type']}, Size: {bytes_to_human(dir_size)}" + colorama.Fore.RESET)
         run_tg_archive(group['id'], group['directory'])
-        print('debug')
-        break
-    print(f"\nTotal groups: {len(groups)}")
+    print(colorama.Fore.CYAN + f"\nTotal groups: {len(groups)}" + colorama.Fore.RESET)
 
 def run_periodically(interval, func, *args, **kwargs):
     while True:

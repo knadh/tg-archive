@@ -135,20 +135,15 @@ def get_log_id(group, start_time=None):
         log_id += f" {colorama.Fore.YELLOW}[⏱️ {humanized_time}]{colorama.Fore.RESET}"
     return log_id
 
-def show_process_stats(group, process, log_file_path, start_time, operation):
-    with open(log_file_path, 'a') as log_file:
-        while process.poll() is None:
-            time.sleep(60)  # Wait for 1 minute
-            dir_size = get_directory_size(group['directory'])
-            status_message = f" - {operation} in progress, size: {bytes_to_human(dir_size)}"
-            print_yellow(group, status_message, start_time)
-            log_file.write(f"{datetime.now().isoformat()} - {status_message}\n")
-            log_file.flush()
-        process.wait()
-        completion_message = f" - [{operation}] COMPLETED with returncode: {process.returncode}"
-        print_green(group, completion_message, start_time)
-        log_file.write(f"{datetime.now().isoformat()} - {completion_message}\n")
-        log_file.flush()
+def show_process_stats(group, process, start_time, operation):
+    while process.poll() is None:
+        time.sleep(60)  # Wait for 1 minute
+        dir_size = get_directory_size(group['directory'])
+        status_message = f" - {operation} in progress, size: {bytes_to_human(dir_size)}"
+        print_yellow(group, status_message, start_time)
+    process.wait()
+    completion_message = f" - [{operation}] COMPLETED with returncode: {process.returncode}"
+    print_green(group, completion_message, start_time)
     return process.returncode
 
 def run_tg_archive(group):
@@ -158,8 +153,6 @@ def run_tg_archive(group):
     config_path = os.path.join(group_dir, 'config.yaml')
     data_path = os.path.join(group_dir, 'data.sqlite')
     template = os.path.join(group_dir, 'template.html')
-    sync_log = os.path.join(group_dir, 'sync.log')
-    build_log = os.path.join(group_dir, 'build.log')
     base_command = ['/usr/local/bin/tg-archive', 
                     '--symlink', 
                     '--config', config_path, 
@@ -177,38 +170,34 @@ def run_tg_archive(group):
         print_cyan(group, f"Processing group {group_id} (Current size: {bytes_to_human(group_size)})", start_time)
         
         print_green(group, f"Running [sync] for group {group_id}, saving in {group_dir}", start_time)
-        with open(sync_log, 'w') as log_file:
-            process = subprocess.Popen(sync_command, cwd="/session", stdout=log_file, stderr=subprocess.STDOUT)
-            returncode = show_process_stats(group, process, sync_log, start_time, "sync")
+        process = subprocess.Popen(sync_command, cwd="/session", stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        returncode = show_process_stats(group, process, start_time, "sync")
         
         if returncode == 0:
             print_green(group, f"Successfully ran tg-archive sync for group {group_id}", start_time)
         else:
             print_red(group, f"Error running tg-archive sync for group {group_id}", start_time)
-            with open(sync_log, 'r') as log_file:
-                log_lines = log_file.readlines()
-                last_10_lines = log_lines[-10:]
-                error_message = f"Error running tg-archive sync for group {group_id}\nLast 10 lines of the sync log:\n" + "\n".join(last_10_lines)
-                print_red(group, error_message, start_time)
+            output, _ = process.communicate()
+            last_10_lines = output.decode().splitlines()[-10:]
+            error_message = f"Error running tg-archive sync for group {group_id}\nLast 10 lines of the sync output:\n" + "\n".join(last_10_lines)
+            print_red(group, error_message, start_time)
             return
         
         print_green(group, f" - Running [build] for group {group_id}", start_time)
-        with open(build_log, 'w') as log_file:
-            process = subprocess.Popen(build_command, cwd="/session", stdout=log_file, stderr=subprocess.STDOUT)
-            returncode = show_process_stats(group, process, build_log, start_time, "build")
+        process = subprocess.Popen(build_command, cwd="/session", stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        returncode = show_process_stats(group, process, start_time, "build")
         
         if returncode == 0:
             print_green(group, f"Successfully ran tg-archive build for group {group_id}", start_time)
         else:
             print_red(group, f"Error running tg-archive build for group {group_id}", start_time)
-            with open(build_log, 'r') as log_file:
-                log_content = log_file.read()
-                if "jinja2.exceptions.UndefinedError: 'collections.OrderedDict object' has no attribute" in log_content:
-                    error_message = f" - Error running tg-archive build for group {group_id}: Template rendering error. The template is trying to access a date that doesn't exist in the data. Please check your template file and ensure all referenced dates are present in the data."
-                else:
-                    last_10_lines = log_content.splitlines()[-10:]
-                    error_message = f"Error running tg-archive build for group {group_id}\nLast 10 lines of the build log:\n" + "\n".join(last_10_lines)
-                print_red(group, error_message, start_time)
+            output, _ = process.communicate()
+            if "jinja2.exceptions.UndefinedError: 'collections.OrderedDict object' has no attribute" in output.decode():
+                error_message = f" - Error running tg-archive build for group {group_id}: Template rendering error. The template is trying to access a date that doesn't exist in the data. Please check your template file and ensure all referenced dates are present in the data."
+            else:
+                last_10_lines = output.decode().splitlines()[-10:]
+                error_message = f"Error running tg-archive build for group {group_id}\nLast 10 lines of the build output:\n" + "\n".join(last_10_lines)
+            print_red(group, error_message, start_time)
             return
         
         final_size = os.path.getsize(data_path)

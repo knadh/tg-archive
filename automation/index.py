@@ -112,14 +112,14 @@ colorama.init(strip=False, autoreset=True)
 def get_log_id(group_id, group_name, start_time=None):
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_id = (
-        f"{colorama.Fore.CYAN}[{current_time}]{colorama.Fore.RESET} "
-        f"{colorama.Fore.GREEN}[ID: {group_id}]{colorama.Fore.RESET} "
-        f"{colorama.Fore.BLUE}[{group_name}]{colorama.Fore.RESET}"
+        f"{colorama.Fore.CYAN}[🕒 {current_time}]{colorama.Fore.RESET} "
+        f"{colorama.Fore.GREEN}[🆔 {group_id}]{colorama.Fore.RESET} "
+        f"{colorama.Fore.BLUE}[📁 {group_name}]{colorama.Fore.RESET}"
     )
     if start_time:
         time_passed = datetime.now() - start_time
         humanized_time = humanize.naturaldelta(time_passed)
-        log_id += f" {colorama.Fore.YELLOW}[Elapsed: {humanized_time}]{colorama.Fore.RESET}"
+        log_id += f" {colorama.Fore.YELLOW}[⏱️ {humanized_time}]{colorama.Fore.RESET}"
     return log_id
 
 def run_tg_archive(group):

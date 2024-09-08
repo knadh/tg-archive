@@ -244,39 +244,15 @@ def get_directory_size(path):
             total_size += os.path.getsize(fp)
     return total_size
 
+def load_template(template_name):
+    with open(os.path.join('automation', 'templates', template_name), 'r') as f:
+        return f.read()
+
 def generate_index_html(groups):
-    html_content = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Telegram Archive Index</title>
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-        <style>
-            body { padding-top: 60px; }
-            .jumbotron { background-color: #f8f9fa; padding: 2rem 1rem; margin-bottom: 2rem; }
-            .group-info { font-size: 0.8em; color: #6c757d; }
-        </style>
-    </head>
-    <body>
-        <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
-            <div class="container-fluid">
-                <a class="navbar-brand" href="#">Telegram Archive</a>
-            </div>
-        </nav>
-
-        <main class="container">
-            <div class="jumbotron text-center">
-                <h1 class="display-4">Telegram Archive Index</h1>
-                <p class="lead">Browse through your archived Telegram groups and channels.</p>
-            </div>
-
-            <div class="row">
-                <div class="col-md-8 offset-md-2">
-                    <ul class="list-group">
-    """
+    index_template = load_template('index_template.html')
+    group_item_template = load_template('group_item_template.html')
     
+    group_list = []
     for group in groups:
         group_name = group['name']
         group_dir = os.path.basename(group['directory'])
@@ -287,26 +263,15 @@ def generate_index_html(groups):
             last_modified_str = last_modified.strftime("%Y-%m-%d %H:%M:%S")
             dir_size = get_directory_size(group['directory'])
             dir_size_str = humanize.naturalsize(dir_size, binary=True)
-            html_content += f'''                        <li class="list-group-item">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <a href="{group_dir}/index.html" class="text-decoration-none">{group_name}</a>
-                                <span class="badge bg-primary rounded-pill">{group_type}</span>
-                            </div>
-                            <div class="group-info">
-                                Last updated: {last_modified_str} | Size: {dir_size_str}
-                            </div>
-                        </li>\n'''
+            group_list.append(group_item_template.format(
+                group_dir=group_dir,
+                group_name=group_name,
+                group_type=group_type,
+                last_modified_str=last_modified_str,
+                dir_size_str=dir_size_str
+            ))
     
-    html_content += """
-                    </ul>
-                </div>
-            </div>
-        </main>
-
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    </body>
-    </html>
-    """
+    html_content = index_template.format(group_list='\n'.join(group_list))
     
     with open('/data/index.html', 'w') as f:
         f.write(html_content)

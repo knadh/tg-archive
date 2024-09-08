@@ -136,7 +136,6 @@ def get_log_id(group_id, group_name, start_time=None):
 
 def run_tg_archive(group):
     group_id = group['id']
-    group_name = group['name']
     group_dir = group['directory']
     start_time = datetime.now()
     config_path = os.path.join(group_dir, 'config.yaml')

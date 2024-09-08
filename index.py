@@ -194,27 +194,43 @@ def generate_index_html(groups):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Telegram Archive Index</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
         <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
-            h1 { color: #333; }
-            ul { list-style-type: none; padding: 0; }
-            li { margin-bottom: 10px; }
-            a { color: #1a73e8; text-decoration: none; }
-            a:hover { text-decoration: underline; }
+            body { padding-top: 60px; }
+            .jumbotron { background-color: #f8f9fa; padding: 2rem 1rem; margin-bottom: 2rem; }
         </style>
     </head>
     <body>
-        <h1>Telegram Archive Index</h1>
-        <ul>
+        <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#">Telegram Archive</a>
+            </div>
+        </nav>
+
+        <main class="container">
+            <div class="jumbotron text-center">
+                <h1 class="display-4">Telegram Archive Index</h1>
+                <p class="lead">Browse through your archived Telegram groups and channels.</p>
+            </div>
+
+            <div class="row">
+                <div class="col-md-8 offset-md-2">
+                    <ul class="list-group">
     """
     
     for group in groups:
         group_name = group['name']
         group_dir = os.path.basename(group['directory'])
-        html_content += f'    <li><a href="{group_dir}/index.html">{group_name}</a></li>\n'
+        group_type = group['type'].capitalize()
+        html_content += f'                        <li class="list-group-item d-flex justify-content-between align-items-center"><a href="{group_dir}/index.html" class="text-decoration-none">{group_name}</a><span class="badge bg-primary rounded-pill">{group_type}</span></li>\n'
     
     html_content += """
-        </ul>
+                    </ul>
+                </div>
+            </div>
+        </main>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     </body>
     </html>
     """

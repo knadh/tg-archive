@@ -16,16 +16,16 @@ from datetime import datetime
 colorama.init(strip=False, autoreset=True)
 
 def print_cyan(group, message, start_time=None):
-    print(get_log_id(group['id'], group['name'], start_time) + colorama.Fore.CYAN + message + colorama.Fore.RESET)
+    print(get_log_id(group, start_time) + colorama.Fore.CYAN + message + colorama.Fore.RESET)
 
 def print_green(group, message, start_time=None):
-    print(get_log_id(group['id'], group['name'], start_time) + colorama.Fore.GREEN + message + colorama.Fore.RESET)
+    print(get_log_id(group, start_time) + colorama.Fore.GREEN + message + colorama.Fore.RESET)
 
 def print_red(group, message, start_time=None):
-    print(get_log_id(group['id'], group['name'], start_time) + colorama.Fore.RED + message + colorama.Fore.RESET)
+    print(get_log_id(group, start_time) + colorama.Fore.RED + message + colorama.Fore.RESET)
 
 def print_yellow(group, message, start_time=None):
-    print(get_log_id(group['id'], group['name'], start_time) + colorama.Fore.YELLOW + message + colorama.Fore.RESET)
+    print(get_log_id(group, start_time) + colorama.Fore.YELLOW + message + colorama.Fore.RESET)
 
 # Load API credentials from .env file
 API_ID = os.getenv('API_ID')
@@ -121,12 +121,13 @@ def bytes_to_human(size):
 
 colorama.init(strip=False, autoreset=True)
 
-def get_log_id(group_id, group_name, start_time=None):
+def get_log_id(group, start_time=None):
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_id = (
         f"{colorama.Fore.CYAN}[🕒 {current_time}]{colorama.Fore.RESET} "
-        f"{colorama.Fore.GREEN}[🆔 {group_id}]{colorama.Fore.RESET} "
-        f"{colorama.Fore.BLUE}[📁 {group_name}]{colorama.Fore.RESET}"
+        f"{colorama.Fore.GREEN}[🆔 {group['id']}]{colorama.Fore.RESET} "
+        f"{colorama.Fore.BLUE}[📁 {group['name']}]{colorama.Fore.RESET} "
+        f"{colorama.Fore.MAGENTA}[💬 {group['type']}]{colorama.Fore.RESET}"
     )
     if start_time:
         time_passed = datetime.now() - start_time

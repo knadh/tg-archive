@@ -94,7 +94,7 @@ import humanize
 def bytes_to_human(size):
     return humanize.naturalsize(size, binary=True)
 
-colorama.init()
+colorama.init(strip=False, autoreset=True)
 
 def run_tg_archive(group_id, group_dir):
     config_path = os.path.join(group_dir, 'config.yaml')

@@ -232,6 +232,7 @@ def run_tg_archive(group):
 
 import os
 import subprocess
+import time
 
 def get_directory_size(path):
     total_size = 0
@@ -302,14 +303,30 @@ async def process_groups():
     groups = await get_groups()
     cache_groups(groups)
     total_groups = len(groups)
+    start_time = time.time()
+    print_cyan({'id': 0, 'name': 'System'}, f"Started processing groups at: {datetime.fromtimestamp(start_time).strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    processing_times = []
     for index, group in enumerate(groups, start=1):
+        group_start_time = time.time()
         dir_size = get_directory_size(group['directory'])
         print("\n---\n")
         progress_percentage = (index / total_groups) * 100
         print_cyan(group, f"Progress: {progress_percentage:.2f}% ({index}/{total_groups})")
         print_cyan(group, f"ID: {group['id']}, Name: {group['name']}, Type: {group['type']}, Size: {bytes_to_human(dir_size)}")
         run_tg_archive(group)
+        group_end_time = time.time()
+        group_processing_time = group_end_time - group_start_time
+        processing_times.append(group_processing_time)
+        print_cyan(group, f"Time taken to process this group: {humanize.naturaldelta(group_processing_time)}")
+    
+    end_time = time.time()
+    total_time = end_time - start_time
+    avg_time = sum(processing_times) / len(processing_times)
+    
     print_cyan({'id': 0, 'name': 'System'}, f"\nTotal groups processed: {total_groups}")
+    print_cyan({'id': 0, 'name': 'System'}, f"Total time taken: {humanize.naturaldelta(total_time)}")
+    print_cyan({'id': 0, 'name': 'System'}, f"Average time per group: {humanize.naturaldelta(avg_time)}")
     generate_index_html(groups)
     print_green({'id': 0, 'name': 'System'}, "Generated index.html with links to all group archives.")
 

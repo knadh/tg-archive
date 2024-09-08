@@ -5,8 +5,8 @@ import shutil
 import time
 import subprocess
 import asyncio
-from telethon import TelegramClient
-from telethon.tl.types import Channel, Chat
+from telethon import TelegramClient, events
+from telethon.tl.types import Channel, Chat, InputPeerUser
 
 import subprocess
 import colorama
@@ -21,6 +21,8 @@ SESSION_ID = os.getenv('SESSION_ID', 'session.session')
 SESSION_PATH = f'/session/{SESSION_ID}'
 # Path for the cache file
 CACHE_FILE = '/data/index.json'
+# Your own username or phone number
+MY_USERNAME = os.getenv('MY_USERNAME')
 
 def parse_group_name(name):
     # Remove non-ASCII characters and replace spaces with underscores
@@ -137,14 +139,15 @@ def run_tg_archive(group_id, group_dir):
         
         if process.returncode == 0:
             print(colorama.Fore.GREEN + f"- Successfully ran tg-archive sync for group {group_id}" + colorama.Fore.RESET)
+            asyncio.get_event_loop().run_until_complete(send_message_to_self(f"Successfully ran tg-archive sync for group {group_id}"))
         else:
             print(colorama.Fore.RED + f"- Error running tg-archive sync for group {group_id}" + colorama.Fore.RESET)
             with open(sync_log, 'r') as log_file:
                 log_lines = log_file.readlines()
                 last_10_lines = log_lines[-10:]
-                print(colorama.Fore.RED + "- Last 10 lines of the sync log:" + colorama.Fore.RESET)
-                for line in last_10_lines:
-                    print(line.strip())
+                error_message = f"Error running tg-archive sync for group {group_id}\nLast 10 lines of the sync log:\n" + "\n".join(last_10_lines)
+                print(colorama.Fore.RED + error_message + colorama.Fore.RESET)
+                asyncio.get_event_loop().run_until_complete(send_message_to_self(error_message))
             return
         
         print(colorama.Fore.GREEN + f"- Running [build] for group {group_id}" + colorama.Fore.RESET)
@@ -159,21 +162,24 @@ def run_tg_archive(group_id, group_dir):
             process.wait()
         if process.returncode == 0:
             print(colorama.Fore.GREEN + f"- Successfully ran tg-archive build for group {group_id}" + colorama.Fore.RESET)
+            asyncio.get_event_loop().run_until_complete(send_message_to_self(f"Successfully ran tg-archive build for group {group_id}"))
         else:
             print(colorama.Fore.RED + f"- Error running tg-archive build for group {group_id}" + colorama.Fore.RESET)
             with open(build_log, 'r') as log_file:
                 log_lines = log_file.readlines()
                 last_10_lines = log_lines[-10:]
-                print(colorama.Fore.RED + "- Last 10 lines of the build log:" + colorama.Fore.RESET)
-                for line in last_10_lines:
-                    print(line.strip())
+                error_message = f"Error running tg-archive build for group {group_id}\nLast 10 lines of the build log:\n" + "\n".join(last_10_lines)
+                print(colorama.Fore.RED + error_message + colorama.Fore.RESET)
+                asyncio.get_event_loop().run_until_complete(send_message_to_self(error_message))
             return
         
         final_size = os.path.getsize(data_path)
         print(colorama.Fore.CYAN + f"- Finished processing group {group_id} (Final size: {bytes_to_human(final_size)})" + colorama.Fore.RESET)
+        asyncio.get_event_loop().run_until_complete(send_message_to_self(f"Finished processing group {group_id} (Final size: {bytes_to_human(final_size)})"))
     except Exception as e:
-        print(colorama.Fore.RED + f"- Error running tg-archive for group {group_id}." + colorama.Fore.RESET)
-        print(e)
+        error_message = f"Error running tg-archive for group {group_id}: {str(e)}"
+        print(colorama.Fore.RED + error_message + colorama.Fore.RESET)
+        asyncio.get_event_loop().run_until_complete(send_message_to_self(error_message))
 
 import os
 import subprocess
@@ -185,6 +191,14 @@ def get_directory_size(path):
             fp = os.path.join(dirpath, f)
             total_size += os.path.getsize(fp)
     return total_size
+
+async def send_message_to_self(message):
+    async with TelegramClient(SESSION_ID, API_ID, API_HASH) as client:
+        try:
+            me = await client.get_input_entity(MY_USERNAME)
+            await client.send_message(me, message)
+        except Exception as e:
+            print(f"Error sending message: {e}")
 
 def generate_index_html(groups):
     html_content = """

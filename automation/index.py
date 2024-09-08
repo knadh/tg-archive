@@ -136,12 +136,19 @@ def get_log_id(group, start_time=None):
     return log_id
 
 def show_process_stats(group, process, log_file_path, start_time, operation):
-    while process.poll() is None:
-        time.sleep(60)  # Wait for 1 minute
-        dir_size = get_directory_size(group['directory'])
-        print_yellow(group, f" - {operation} in progress, size: {bytes_to_human(dir_size)}", start_time)
-    process.wait()
-    print_green(group, f" - [{operation}] COMPLETED with returncode: {process.returncode}", start_time)
+    with open(log_file_path, 'a') as log_file:
+        while process.poll() is None:
+            time.sleep(60)  # Wait for 1 minute
+            dir_size = get_directory_size(group['directory'])
+            status_message = f" - {operation} in progress, size: {bytes_to_human(dir_size)}"
+            print_yellow(group, status_message, start_time)
+            log_file.write(f"{datetime.now().isoformat()} - {status_message}\n")
+            log_file.flush()
+        process.wait()
+        completion_message = f" - [{operation}] COMPLETED with returncode: {process.returncode}"
+        print_green(group, completion_message, start_time)
+        log_file.write(f"{datetime.now().isoformat()} - {completion_message}\n")
+        log_file.flush()
     return process.returncode
 
 def run_tg_archive(group):

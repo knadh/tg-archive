@@ -5,13 +5,13 @@ import shutil
 import time
 import subprocess
 import asyncio
-from telethon import TelegramClient, events
-from telethon.tl.types import Channel, Chat, InputPeerUser
-
 import subprocess
 import colorama
 import time
 import humanize
+
+from telethon import TelegramClient, events
+from telethon.tl.types import Channel, Chat, InputPeerUser
 from datetime import datetime
 colorama.init(strip=False, autoreset=True)
 
@@ -135,7 +135,7 @@ def get_log_id(group, start_time=None):
         log_id += f" {colorama.Fore.YELLOW}[⏱️ {humanized_time}]{colorama.Fore.RESET}"
     return log_id
 
-import shutil
+
 
 def show_process_stats(group, process, start_time, operation):
     while process.poll() is None:

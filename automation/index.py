@@ -301,12 +301,15 @@ async def process_groups():
     
     groups = await get_groups()
     cache_groups(groups)
-    for group in groups:
+    total_groups = len(groups)
+    for index, group in enumerate(groups, start=1):
         dir_size = get_directory_size(group['directory'])
         print("\n---\n")
+        progress_percentage = (index / total_groups) * 100
+        print_cyan(group, f"Progress: {progress_percentage:.2f}% ({index}/{total_groups})")
         print_cyan(group, f"ID: {group['id']}, Name: {group['name']}, Type: {group['type']}, Size: {bytes_to_human(dir_size)}")
         run_tg_archive(group)
-    print_cyan({'id': 0, 'name': 'System'}, f"\nTotal groups: {len(groups)}")
+    print_cyan({'id': 0, 'name': 'System'}, f"\nTotal groups processed: {total_groups}")
     generate_index_html(groups)
     print_green({'id': 0, 'name': 'System'}, "Generated index.html with links to all group archives.")
 

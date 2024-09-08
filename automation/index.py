@@ -15,17 +15,17 @@ import humanize
 from datetime import datetime
 colorama.init(strip=False, autoreset=True)
 
-def print_cyan(group, message):
-    print(get_log_id(group['id'], group['name']) + colorama.Fore.CYAN + message + colorama.Fore.RESET)
+def print_cyan(group, message, start_time=None):
+    print(get_log_id(group['id'], group['name'], start_time) + colorama.Fore.CYAN + message + colorama.Fore.RESET)
 
-def print_green(group, message):
-    print(get_log_id(group['id'], group['name']) + colorama.Fore.GREEN + message + colorama.Fore.RESET)
+def print_green(group, message, start_time=None):
+    print(get_log_id(group['id'], group['name'], start_time) + colorama.Fore.GREEN + message + colorama.Fore.RESET)
 
-def print_red(group, message):
-    print(get_log_id(group['id'], group['name']) + colorama.Fore.RED + message + colorama.Fore.RESET)
+def print_red(group, message, start_time=None):
+    print(get_log_id(group['id'], group['name'], start_time) + colorama.Fore.RED + message + colorama.Fore.RESET)
 
-def print_yellow(group, message):
-    print(get_log_id(group['id'], group['name']) + colorama.Fore.YELLOW + message + colorama.Fore.RESET)
+def print_yellow(group, message, start_time=None):
+    print(get_log_id(group['id'], group['name'], start_time) + colorama.Fore.YELLOW + message + colorama.Fore.RESET)
 
 # Load API credentials from .env file
 API_ID = os.getenv('API_ID')
@@ -158,40 +158,40 @@ def run_tg_archive(group):
     
     try:
         group_size = os.path.getsize(data_path) if os.path.exists(data_path) else 0
-        print_cyan(group, f"Processing group {group_id} (Current size: {bytes_to_human(group_size)})")
+        print_cyan(group, f"Processing group {group_id} (Current size: {bytes_to_human(group_size)})", start_time)
         
-        print_green(group, f"Running [sync] for group {group_id}, saving in {group_dir}")
+        print_green(group, f"Running [sync] for group {group_id}, saving in {group_dir}", start_time)
         with open(sync_log, 'w') as log_file:
             process = subprocess.Popen(sync_command, cwd="/session", stdout=log_file, stderr=subprocess.STDOUT)
             while process.poll() is None:
                 time.sleep(60)  # Wait for 1 minute
                 dir_size = get_directory_size(group_dir)
-                print_yellow(group, f" - size: {bytes_to_human(dir_size)}")
+                print_yellow(group, f" - size: {bytes_to_human(dir_size)}", start_time)
             process.wait()
-        print_green(group, f" - [sync] COMPLETED with returncode: {process.returncode}")
+        print_green(group, f" - [sync] COMPLETED with returncode: {process.returncode}", start_time)
         
         if process.returncode == 0:
-            print_green(group, f"Successfully ran tg-archive sync for group {group_id}")
+            print_green(group, f"Successfully ran tg-archive sync for group {group_id}", start_time)
         else:
-            print_red(group, f"Error running tg-archive sync for group {group_id}")
+            print_red(group, f"Error running tg-archive sync for group {group_id}", start_time)
             with open(sync_log, 'r') as log_file:
                 log_lines = log_file.readlines()
                 last_10_lines = log_lines[-10:]
                 error_message = f"Error running tg-archive sync for group {group_id}\nLast 10 lines of the sync log:\n" + "\n".join(last_10_lines)
-                print_red(group, error_message)
+                print_red(group, error_message, start_time)
             return
         
-        print_green(group, f" - Running [build] for group {group_id}")
+        print_green(group, f" - Running [build] for group {group_id}", start_time)
         with open(build_log, 'w') as log_file:
             process = subprocess.Popen(build_command, cwd="/session", stdout=log_file, stderr=subprocess.STDOUT)
             while process.poll() is None:
                 time.sleep(60)  # Wait for 1 minute
-                print_yellow(group, "Build in progress...")
+                print_yellow(group, "Build in progress...", start_time)
             process.wait()
         if process.returncode == 0:
-            print_green(group, f"Successfully ran tg-archive build for group {group_id}")
+            print_green(group, f"Successfully ran tg-archive build for group {group_id}", start_time)
         else:
-            print_red(group, f"Error running tg-archive build for group {group_id}")
+            print_red(group, f"Error running tg-archive build for group {group_id}", start_time)
             with open(build_log, 'r') as log_file:
                 log_content = log_file.read()
                 if "jinja2.exceptions.UndefinedError: 'collections.OrderedDict object' has no attribute" in log_content:
@@ -199,14 +199,14 @@ def run_tg_archive(group):
                 else:
                     last_10_lines = log_content.splitlines()[-10:]
                     error_message = f"Error running tg-archive build for group {group_id}\nLast 10 lines of the build log:\n" + "\n".join(last_10_lines)
-                print_red(group, error_message)
+                print_red(group, error_message, start_time)
             return
         
         final_size = os.path.getsize(data_path)
-        print_cyan(group, f"Finished processing group {group_id} (Final size: {bytes_to_human(final_size)})")
+        print_cyan(group, f"Finished processing group {group_id} (Final size: {bytes_to_human(final_size)})", start_time)
     except Exception as e:
         error_message = f"Error running tg-archive for group {group_id}: {str(e)}"
-        print_red(group, error_message)
+        print_red(group, error_message, start_time)
 
 import os
 import subprocess

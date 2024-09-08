@@ -209,9 +209,7 @@ def gen_session_config():
         config_content = config_content.replace('--HASH--', str(API_HASH))
     return config_content
 
-if __name__ == '__main__':
-    import asyncio
-    import time
+def check_session():
     print(f'SESSION_PATH: {SESSION_PATH}')
     config_path = os.path.join('/session', 'config.yaml')
     config_content = gen_session_config()
@@ -225,5 +223,10 @@ if __name__ == '__main__':
         print(colorama.Fore.RED + f"cd /session && /usr/local/bin/tg-archive --sync" + colorama.Fore.RESET)
         while not os.path.exists(SESSION_PATH):
             time.sleep(10)
+
+if __name__ == '__main__':
+    import asyncio
+    import time
+    check_session()
     process_groups()
     run_periodically(3600, process_groups)

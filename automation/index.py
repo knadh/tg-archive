@@ -233,6 +233,8 @@ def run_tg_archive(group):
 import os
 import subprocess
 import time
+import humanize
+from datetime import datetime
 
 def get_directory_size(path):
     total_size = 0
@@ -254,6 +256,7 @@ def generate_index_html(groups):
         <style>
             body { padding-top: 60px; }
             .jumbotron { background-color: #f8f9fa; padding: 2rem 1rem; margin-bottom: 2rem; }
+            .group-info { font-size: 0.8em; color: #6c757d; }
         </style>
     </head>
     <body>
@@ -280,7 +283,19 @@ def generate_index_html(groups):
         group_type = group['type'].capitalize()
         index_file = os.path.join(group['directory'], 'index.html')
         if os.path.exists(index_file):
-            html_content += f'                        <li class="list-group-item d-flex justify-content-between align-items-center"><a href="{group_dir}/index.html" class="text-decoration-none">{group_name}</a><span class="badge bg-primary rounded-pill">{group_type}</span></li>\n'
+            last_modified = datetime.fromtimestamp(os.path.getmtime(index_file))
+            last_modified_str = last_modified.strftime("%Y-%m-%d %H:%M:%S")
+            dir_size = get_directory_size(group['directory'])
+            dir_size_str = humanize.naturalsize(dir_size, binary=True)
+            html_content += f'''                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <a href="{group_dir}/index.html" class="text-decoration-none">{group_name}</a>
+                                <span class="badge bg-primary rounded-pill">{group_type}</span>
+                            </div>
+                            <div class="group-info">
+                                Last updated: {last_modified_str} | Size: {dir_size_str}
+                            </div>
+                        </li>\n'''
     
     html_content += """
                     </ul>

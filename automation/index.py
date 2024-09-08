@@ -278,7 +278,9 @@ def generate_index_html(groups):
         group_name = group['name']
         group_dir = os.path.basename(group['directory'])
         group_type = group['type'].capitalize()
-        html_content += f'                        <li class="list-group-item d-flex justify-content-between align-items-center"><a href="{group_dir}/index.html" class="text-decoration-none">{group_name}</a><span class="badge bg-primary rounded-pill">{group_type}</span></li>\n'
+        index_file = os.path.join(group['directory'], 'index.html')
+        if os.path.exists(index_file):
+            html_content += f'                        <li class="list-group-item d-flex justify-content-between align-items-center"><a href="{group_dir}/index.html" class="text-decoration-none">{group_name}</a><span class="badge bg-primary rounded-pill">{group_type}</span></li>\n'
     
     html_content += """
                     </ul>

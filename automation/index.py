@@ -135,6 +135,15 @@ def get_log_id(group, start_time=None):
         log_id += f" {colorama.Fore.YELLOW}[⏱️ {humanized_time}]{colorama.Fore.RESET}"
     return log_id
 
+def show_process_stats(group, process, log_file_path, start_time, operation):
+    while process.poll() is None:
+        time.sleep(60)  # Wait for 1 minute
+        dir_size = get_directory_size(group['directory'])
+        print_yellow(group, f" - {operation} in progress, size: {bytes_to_human(dir_size)}", start_time)
+    process.wait()
+    print_green(group, f" - [{operation}] COMPLETED with returncode: {process.returncode}", start_time)
+    return process.returncode
+
 def run_tg_archive(group):
     group_id = group['id']
     group_dir = group['directory']
@@ -163,14 +172,9 @@ def run_tg_archive(group):
         print_green(group, f"Running [sync] for group {group_id}, saving in {group_dir}", start_time)
         with open(sync_log, 'w') as log_file:
             process = subprocess.Popen(sync_command, cwd="/session", stdout=log_file, stderr=subprocess.STDOUT)
-            while process.poll() is None:
-                time.sleep(60)  # Wait for 1 minute
-                dir_size = get_directory_size(group_dir)
-                print_yellow(group, f" - size: {bytes_to_human(dir_size)}", start_time)
-            process.wait()
-        print_green(group, f" - [sync] COMPLETED with returncode: {process.returncode}", start_time)
+            returncode = show_process_stats(group, process, sync_log, start_time, "sync")
         
-        if process.returncode == 0:
+        if returncode == 0:
             print_green(group, f"Successfully ran tg-archive sync for group {group_id}", start_time)
         else:
             print_red(group, f"Error running tg-archive sync for group {group_id}", start_time)
@@ -184,11 +188,9 @@ def run_tg_archive(group):
         print_green(group, f" - Running [build] for group {group_id}", start_time)
         with open(build_log, 'w') as log_file:
             process = subprocess.Popen(build_command, cwd="/session", stdout=log_file, stderr=subprocess.STDOUT)
-            while process.poll() is None:
-                time.sleep(60)  # Wait for 1 minute
-                print_yellow(group, "Build in progress...", start_time)
-            process.wait()
-        if process.returncode == 0:
+            returncode = show_process_stats(group, process, build_log, start_time, "build")
+        
+        if returncode == 0:
             print_green(group, f"Successfully ran tg-archive build for group {group_id}", start_time)
         else:
             print_red(group, f"Error running tg-archive build for group {group_id}", start_time)

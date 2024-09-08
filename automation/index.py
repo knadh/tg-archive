@@ -13,6 +13,7 @@ import humanize
 from telethon import TelegramClient, events
 from telethon.tl.types import Channel, Chat, InputPeerUser
 from datetime import datetime
+from automation.config import SKIP_MESSAGE_IDS
 colorama.init(strip=False, autoreset=True)
 
 def print_cyan(group, message, start_time=None):
@@ -199,6 +200,25 @@ def run_tg_archive(group):
         
         if returncode == 0:
             print_green(group, f"Successfully ran tg-archive sync for group {group_id}", start_time)
+
+            # Process messages
+            with sqlite3.connect(data_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT id, type, text FROM messages")
+                for message_id, message_type, message_text in cursor:
+                    if message_id in SKIP_MESSAGE_IDS:
+                        print_yellow(group, f"Skipping message {message_id} (configured in SKIP_MESSAGE_IDS)", start_time)
+                        continue
+                    if message_id in PROCESSED_MESSAGE_IDS:
+                        print_yellow(group, f"Skipping already processed message {message_id}", start_time)
+                        continue
+                    if message_type in SKIP_MESSAGE_TYPES:
+                        print_yellow(group, f"Skipping message {message_id} of type {message_type}", start_time)
+                        continue
+                    # Process the message
+                    print_green(group, f"Processing message {message_id} of type {message_type}", start_time)
+                    # Add your message processing logic here
+                    PROCESSED_MESSAGE_IDS.add(message_id)
         else:
             print_red(group, f"Error running tg-archive sync for group {group_id}", start_time)
             output, _ = process.communicate()

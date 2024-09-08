@@ -143,7 +143,9 @@ def show_process_stats(group, process, start_time, operation):
         dir_size = get_directory_size(group['directory'])
         total, used, free = shutil.disk_usage("/data")
         free_percent = (free / total) * 100
-        status_message = f" - {operation} in progress, size: {bytes_to_human(dir_size)}, free space: {bytes_to_human(free)} ({free_percent:.2f}%)"
+        used_percent = 100 - free_percent
+        space_color = colorama.Fore.RED if used_percent >= 90 else colorama.Fore.YELLOW
+        status_message = f" - {operation} in progress, size: {bytes_to_human(dir_size)}, free space: {space_color}{bytes_to_human(free)} ({free_percent:.2f}%){colorama.Fore.RESET}"
         print_yellow(group, status_message, start_time)
     process.wait()
     completion_message = f" - [{operation}] COMPLETED with returncode: {process.returncode}"

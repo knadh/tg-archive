@@ -319,6 +319,7 @@ async def process_groups():
         group_processing_time = group_end_time - group_start_time
         processing_times.append(group_processing_time)
         print_cyan(group, f"Time taken to process this group: {humanize.naturaldelta(group_processing_time)}")
+        generate_index_html(groups)
     
     end_time = time.time()
     total_time = end_time - start_time
@@ -327,8 +328,8 @@ async def process_groups():
     print_cyan({'id': 0, 'name': 'System'}, f"\nTotal groups processed: {total_groups}")
     print_cyan({'id': 0, 'name': 'System'}, f"Total time taken: {humanize.naturaldelta(total_time)}")
     print_cyan({'id': 0, 'name': 'System'}, f"Average time per group: {humanize.naturaldelta(avg_time)}")
-    generate_index_html(groups)
-    print_green({'id': 0, 'name': 'System'}, "Generated index.html with links to all group archives.")
+    
+
 
 def run_periodically(interval, func, *args, **kwargs):
     while True:

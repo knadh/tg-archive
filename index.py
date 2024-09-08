@@ -186,6 +186,42 @@ def get_directory_size(path):
             total_size += os.path.getsize(fp)
     return total_size
 
+def generate_index_html(groups):
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Telegram Archive Index</title>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
+            h1 { color: #333; }
+            ul { list-style-type: none; padding: 0; }
+            li { margin-bottom: 10px; }
+            a { color: #1a73e8; text-decoration: none; }
+            a:hover { text-decoration: underline; }
+        </style>
+    </head>
+    <body>
+        <h1>Telegram Archive Index</h1>
+        <ul>
+    """
+    
+    for group in groups:
+        group_name = group['name']
+        group_dir = os.path.basename(group['directory'])
+        html_content += f'    <li><a href="{group_dir}/index.html">{group_name}</a></li>\n'
+    
+    html_content += """
+        </ul>
+    </body>
+    </html>
+    """
+    
+    with open('/data/index.html', 'w') as f:
+        f.write(html_content)
+
 def process_groups():
     groups = asyncio.get_event_loop().run_until_complete(get_groups())
     cache_groups(groups)
@@ -194,6 +230,8 @@ def process_groups():
         print(colorama.Fore.CYAN + f"ID: {group['id']}, Name: {group['name']}, Type: {group['type']}, Size: {bytes_to_human(dir_size)}" + colorama.Fore.RESET)
         run_tg_archive(group['id'], group['directory'])
     print(colorama.Fore.CYAN + f"\nTotal groups: {len(groups)}" + colorama.Fore.RESET)
+    generate_index_html(groups)
+    print(colorama.Fore.GREEN + "Generated index.html with links to all group archives." + colorama.Fore.RESET)
 
 def run_periodically(interval, func, *args, **kwargs):
     while True:

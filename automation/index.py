@@ -145,11 +145,29 @@ def show_process_stats(group, process, start_time, operation):
         free_percent = (free / total) * 100
         used_percent = 100 - free_percent
         space_color = colorama.Fore.RED if used_percent >= 90 else colorama.Fore.YELLOW
-        status_message = f" - {operation} in progress, size: {bytes_to_human(dir_size)}, free space: {space_color}{bytes_to_human(free)} ({free_percent:.2f}%){colorama.Fore.RESET}"
-        print_yellow(group, status_message, start_time)
+
+        # Disk space info line
+        disk_info = (
+            f"{colorama.Fore.CYAN}💾 Disk:{colorama.Fore.RESET} "
+            f"Total: {bytes_to_human(total)} | "
+            f"Used: {bytes_to_human(used)} ({used_percent:.1f}%) | "
+            f"{space_color}Free: {bytes_to_human(free)} ({free_percent:.1f}%){colorama.Fore.RESET}"
+        )
+        print_yellow(group, disk_info)
+
+        # Status message and time info line
+        time_passed = datetime.now() - start_time
+        status_message = (
+            f"{colorama.Fore.YELLOW}📊 Status:{colorama.Fore.RESET} "
+            f"{operation.capitalize()} in progress | "
+            f"{colorama.Fore.GREEN}📁 Size: {bytes_to_human(dir_size)}{colorama.Fore.RESET} | "
+            f"{colorama.Fore.MAGENTA}⏱️ Time: {humanize.naturaldelta(time_passed)}{colorama.Fore.RESET}"
+        )
+        print_yellow(group, status_message)
+
     process.wait()
-    completion_message = f" - [{operation}] COMPLETED with returncode: {process.returncode}"
-    print_green(group, completion_message, start_time)
+    completion_message = f"{colorama.Fore.GREEN}✅ [{operation.upper()}] COMPLETED with returncode: {process.returncode}{colorama.Fore.RESET}"
+    print_green(group, completion_message)
     return process.returncode
 
 def run_tg_archive(group):

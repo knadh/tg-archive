@@ -135,11 +135,15 @@ def get_log_id(group, start_time=None):
         log_id += f" {colorama.Fore.YELLOW}[⏱️ {humanized_time}]{colorama.Fore.RESET}"
     return log_id
 
+import shutil
+
 def show_process_stats(group, process, start_time, operation):
     while process.poll() is None:
         time.sleep(60)  # Wait for 1 minute
         dir_size = get_directory_size(group['directory'])
-        status_message = f" - {operation} in progress, size: {bytes_to_human(dir_size)}"
+        total, used, free = shutil.disk_usage("/data")
+        free_percent = (free / total) * 100
+        status_message = f" - {operation} in progress, size: {bytes_to_human(dir_size)}, free space: {bytes_to_human(free)} ({free_percent:.2f}%)"
         print_yellow(group, status_message, start_time)
     process.wait()
     completion_message = f" - [{operation}] COMPLETED with returncode: {process.returncode}"

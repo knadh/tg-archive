@@ -108,11 +108,19 @@ def bytes_to_human(size):
 
 colorama.init(strip=False, autoreset=True)
 
+def get_log_id(group_id, group_name, start_time=None):
+    log_id = colorama.Fore.BLUE + f" - [{group_id}-{group_name}] " + colorama.Fore.RESET
+    if start_time:
+        time_passed = datetime.now() - start_time
+        humanized_time = humanize.naturaldelta(time_passed)
+        log_id += colorama.Fore.YELLOW + f"[{humanized_time}] " + colorama.Fore.RESET
+    return log_id
+
 def run_tg_archive(group):
     group_id = group['id']
     group_name = group['name']
     group_dir = group['directory']
-    log_id = colorama.Fore.BLUE + f" - [{group_id}-{group_name}] " + colorama.Fore.RESET
+    start_time = datetime.now()
     config_path = os.path.join(group_dir, 'config.yaml')
     data_path = os.path.join(group_dir, 'data.sqlite')
     template = os.path.join(group_dir, 'template.html')

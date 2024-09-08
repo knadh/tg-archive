@@ -65,7 +65,7 @@ def create_group_directory(group_name, group_id):
 
 async def get_groups():
     async with TelegramClient(SESSION_ID, API_ID, API_HASH) as client:
-        dialogs = await client.get_dialogs(archived=False)
+        dialogs = await client.get_dialogs(archived=False, ignore_pinned=True, ignore_migrated=True)
         groups = []
         print(colorama.Fore.CYAN + f"Total dialogs fetched: {len(dialogs)}" + colorama.Fore.RESET)
         i=0
@@ -128,10 +128,10 @@ def run_tg_archive(group_id, group_dir):
     
     try:
         group_size = os.path.getsize(data_path) if os.path.exists(data_path) else 0
-        print(colorama.Fore.CYAN + f"#Processing group {group_id} (Current size: {bytes_to_human(group_size)})" + colorama.Fore.RESET)
+        print(colorama.Fore.CYAN + f" - Processing group {group_id} (Current size: {bytes_to_human(group_size)})" + colorama.Fore.RESET)
         
-        print(colorama.Fore.GREEN + f"- Running [sync] for group {group_id}, saving in {group_dir}" + colorama.Fore.RESET)
-        print(colorama.Fore.GREEN + ' '.join(sync_command) + colorama.Fore.RESET)
+        print(colorama.Fore.GREEN + f" - Running [sync] for group {group_id}, saving in {group_dir}" + colorama.Fore.RESET)
+        #print(colorama.Fore.GREEN + ' '.join(sync_command) + colorama.Fore.RESET)
         start_time = time.time()
         with open(sync_log, 'w') as log_file:
             process = subprocess.Popen(sync_command, cwd="/session", stdout=log_file, stderr=subprocess.STDOUT)
@@ -145,20 +145,20 @@ def run_tg_archive(group_id, group_dir):
         print(f" - [sync] COMPLETED with returncode: {process.returncode}")
         
         if process.returncode == 0:
-            print(colorama.Fore.GREEN + f"- Successfully ran tg-archive sync for group {group_id}" + colorama.Fore.RESET)
-            asyncio.get_event_loop().run_until_complete(send_message_to_self(f"Successfully ran tg-archive sync for group {group_id}"))
+            print(colorama.Fore.GREEN + f" - Successfully ran tg-archive sync for group {group_id}" + colorama.Fore.RESET)
+            #asyncio.get_event_loop().run_until_complete(send_message_to_self(f"Successfully ran tg-archive sync for group {group_id}"))
         else:
-            print(colorama.Fore.RED + f"- Error running tg-archive sync for group {group_id}" + colorama.Fore.RESET)
+            print(colorama.Fore.RED + f" - Error running tg-archive sync for group {group_id}" + colorama.Fore.RESET)
             with open(sync_log, 'r') as log_file:
                 log_lines = log_file.readlines()
                 last_10_lines = log_lines[-10:]
                 error_message = f"Error running tg-archive sync for group {group_id}\nLast 10 lines of the sync log:\n" + "\n".join(last_10_lines)
                 print(colorama.Fore.RED + error_message + colorama.Fore.RESET)
-                asyncio.get_event_loop().run_until_complete(send_message_to_self(error_message))
+                #asyncio.get_event_loop().run_until_complete(send_message_to_self(error_message))
             return
         
-        print(colorama.Fore.GREEN + f"- Running [build] for group {group_id}" + colorama.Fore.RESET)
-        print(colorama.Fore.GREEN + ' '.join(build_command) + colorama.Fore.RESET)
+        print(colorama.Fore.GREEN + f" - Running [build] for group {group_id}" + colorama.Fore.RESET)
+        #print(colorama.Fore.GREEN + ' '.join(build_command) + colorama.Fore.RESET)
         start_time = time.time()
         with open(build_log, 'w') as log_file:
             process = subprocess.Popen(build_command, cwd="/session", stdout=log_file, stderr=subprocess.STDOUT)
@@ -168,25 +168,25 @@ def run_tg_archive(group_id, group_dir):
                 print(colorama.Fore.YELLOW + f"Build in progress... Time elapsed: {time.strftime('%H:%M:%S', time.gmtime(elapsed_time))}" + colorama.Fore.RESET)
             process.wait()
         if process.returncode == 0:
-            print(colorama.Fore.GREEN + f"- Successfully ran tg-archive build for group {group_id}" + colorama.Fore.RESET)
-            asyncio.get_event_loop().run_until_complete(send_message_to_self(f"Successfully ran tg-archive build for group {group_id}"))
+            print(colorama.Fore.GREEN + f" - Successfully ran tg-archive build for group {group_id}" + colorama.Fore.RESET)
+            #asyncio.get_event_loop().run_until_complete(send_message_to_self(f" - Successfully ran tg-archive build for group {group_id}"))
         else:
-            print(colorama.Fore.RED + f"- Error running tg-archive build for group {group_id}" + colorama.Fore.RESET)
+            print(colorama.Fore.RED + f" - Error running tg-archive build for group {group_id}" + colorama.Fore.RESET)
             with open(build_log, 'r') as log_file:
                 log_lines = log_file.readlines()
                 last_10_lines = log_lines[-10:]
-                error_message = f"Error running tg-archive build for group {group_id}\nLast 10 lines of the build log:\n" + "\n".join(last_10_lines)
+                error_message = f" - Error running tg-archive build for group {group_id}\nLast 10 lines of the build log:\n" + "\n".join(last_10_lines)
                 print(colorama.Fore.RED + error_message + colorama.Fore.RESET)
-                asyncio.get_event_loop().run_until_complete(send_message_to_self(error_message))
+                #asyncio.get_event_loop().run_until_complete(send_message_to_self(error_message))
             return
         
         final_size = os.path.getsize(data_path)
-        print(colorama.Fore.CYAN + f"- Finished processing group {group_id} (Final size: {bytes_to_human(final_size)})" + colorama.Fore.RESET)
-        asyncio.get_event_loop().run_until_complete(send_message_to_self(f"Finished processing group {group_id} (Final size: {bytes_to_human(final_size)})"))
+        print(colorama.Fore.CYAN + f" - Finished processing group {group_id} (Final size: {bytes_to_human(final_size)})" + colorama.Fore.RESET)
+        #asyncio.get_event_loop().run_until_complete(send_message_to_self(f"Finished processing group {group_id} (Final size: {bytes_to_human(final_size)})"))
     except Exception as e:
         error_message = f"Error running tg-archive for group {group_id}: {str(e)}"
         print(colorama.Fore.RED + error_message + colorama.Fore.RESET)
-        asyncio.get_event_loop().run_until_complete(send_message_to_self(error_message))
+        #asyncio.get_event_loop().run_until_complete(send_message_to_self(error_message))
 
 import os
 import subprocess
@@ -269,6 +269,7 @@ async def process_groups():
     cache_groups(groups)
     for group in groups:
         dir_size = get_directory_size(group['directory'])
+        print("\n---\n")
         print(colorama.Fore.CYAN + f"ID: {group['id']}, Name: {group['name']}, Type: {group['type']}, Size: {bytes_to_human(dir_size)}" + colorama.Fore.RESET)
         run_tg_archive(group['id'], group['directory'])
     print(colorama.Fore.CYAN + f"\nTotal groups: {len(groups)}" + colorama.Fore.RESET)

@@ -21,8 +21,15 @@ SESSION_ID = os.getenv('SESSION_ID', 'session.session')
 SESSION_PATH = f'/session/{SESSION_ID}'
 # Path for the cache file
 CACHE_FILE = '/data/index.json'
-# Your own username or phone number
-MY_USERNAME = os.getenv('MY_USERNAME')
+# Your own username or phone number will be set dynamically
+MY_USERNAME = None
+
+async def get_my_username():
+    global MY_USERNAME
+    async with TelegramClient(SESSION_ID, API_ID, API_HASH) as client:
+        me = await client.get_me()
+        MY_USERNAME = me.username if me.username else me.phone
+    return MY_USERNAME
 
 def parse_group_name(name):
     # Remove non-ASCII characters and replace spaces with underscores
@@ -252,8 +259,13 @@ def generate_index_html(groups):
     with open('/data/index.html', 'w') as f:
         f.write(html_content)
 
-def process_groups():
-    groups = asyncio.get_event_loop().run_until_complete(get_groups())
+async def process_groups():
+    global MY_USERNAME
+    if MY_USERNAME is None:
+        MY_USERNAME = await get_my_username()
+        print(colorama.Fore.GREEN + f"Detected username: {MY_USERNAME}" + colorama.Fore.RESET)
+    
+    groups = await get_groups()
     cache_groups(groups)
     for group in groups:
         dir_size = get_directory_size(group['directory'])
@@ -296,5 +308,5 @@ if __name__ == '__main__':
     import asyncio
     import time
     check_session()
-    process_groups()
-    run_periodically(3600, process_groups)
+    asyncio.get_event_loop().run_until_complete(process_groups())
+    run_periodically(3600, lambda: asyncio.get_event_loop().run_until_complete(process_groups()))

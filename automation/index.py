@@ -12,6 +12,7 @@ import subprocess
 import colorama
 import time
 import humanize
+from datetime import datetime
 colorama.init(strip=False, autoreset=True)
 
 # Load API credentials from .env file

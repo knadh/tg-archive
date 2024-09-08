@@ -158,7 +158,6 @@ def run_tg_archive(group_id, group_dir):
             return
         
         print(colorama.Fore.GREEN + f" - Running [build] for group {group_id}" + colorama.Fore.RESET)
-        #print(colorama.Fore.GREEN + ' '.join(build_command) + colorama.Fore.RESET)
         start_time = time.time()
         with open(build_log, 'w') as log_file:
             process = subprocess.Popen(build_command, cwd="/session", stdout=log_file, stderr=subprocess.STDOUT)
@@ -169,15 +168,17 @@ def run_tg_archive(group_id, group_dir):
             process.wait()
         if process.returncode == 0:
             print(colorama.Fore.GREEN + f" - Successfully ran tg-archive build for group {group_id}" + colorama.Fore.RESET)
-            #asyncio.get_event_loop().run_until_complete(send_message_to_self(f" - Successfully ran tg-archive build for group {group_id}"))
         else:
             print(colorama.Fore.RED + f" - Error running tg-archive build for group {group_id}" + colorama.Fore.RESET)
             with open(build_log, 'r') as log_file:
-                log_lines = log_file.readlines()
-                last_10_lines = log_lines[-10:]
-                error_message = f" - Error running tg-archive build for group {group_id}\nLast 10 lines of the build log:\n" + "\n".join(last_10_lines)
+                log_content = log_file.read()
+                if "jinja2.exceptions.UndefinedError: 'collections.OrderedDict object' has no attribute" in log_content:
+                    error_message = f" - Error running tg-archive build for group {group_id}: Template rendering error. The template is trying to access a date that doesn't exist in the data. Please check your template file and ensure all referenced dates are present in the data."
+                else:
+                    last_10_lines = log_content.splitlines()[-10:]
+                    error_message = f" - Error running tg-archive build for group {group_id}\nLast 10 lines of the build log:\n" + "\n".join(last_10_lines)
                 print(colorama.Fore.RED + error_message + colorama.Fore.RESET)
-                #asyncio.get_event_loop().run_until_complete(send_message_to_self(error_message))
+                asyncio.get_event_loop().run_until_complete(send_message_to_self(error_message))
             return
         
         final_size = os.path.getsize(data_path)

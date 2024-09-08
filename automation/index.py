@@ -10,11 +10,14 @@ import colorama
 import time
 import humanize
 
+import sqlite3
 from telethon import TelegramClient, events
 from telethon.tl.types import Channel, Chat, InputPeerUser
 from datetime import datetime
-from automation.config import SKIP_MESSAGE_IDS
+from automation.config import SKIP_MESSAGE_IDS, SKIP_MESSAGE_TYPES
 colorama.init(strip=False, autoreset=True)
+
+PROCESSED_MESSAGE_IDS = set()
 
 def print_cyan(group, message, start_time=None):
     print(get_log_id(group, start_time) + colorama.Fore.CYAN + message + colorama.Fore.RESET)
@@ -172,6 +175,7 @@ def show_process_stats(group, process, start_time, operation):
     return process.returncode
 
 def run_tg_archive(group):
+    global PROCESSED_MESSAGE_IDS
     group_id = group['id']
     group_dir = group['directory']
     start_time = datetime.now()

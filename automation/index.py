@@ -5,19 +5,15 @@ import shutil
 import time
 import subprocess
 import asyncio
-import subprocess
 import colorama
-import time
 import humanize
+import traceback
 
-import sqlite3
-from telethon import TelegramClient, events
-from telethon.tl.types import Channel, Chat, InputPeerUser
 from datetime import datetime
-from automation.config import SKIP_MESSAGE_IDS, SKIP_MESSAGE_TYPES
+from telethon import TelegramClient
+from telethon.tl.types import Channel, Chat
+from datetime import datetime
 colorama.init(strip=False, autoreset=True)
-
-PROCESSED_MESSAGE_IDS = set()
 
 def print_cyan(group, message, start_time=None):
     print(get_log_id(group, start_time) + colorama.Fore.CYAN + message + colorama.Fore.RESET)
@@ -126,17 +122,18 @@ def bytes_to_human(size):
 colorama.init(strip=False, autoreset=True)
 
 def get_log_id(group, start_time=None):
-    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_id = (
-        f"{colorama.Fore.CYAN}[🕒 {current_time}]{colorama.Fore.RESET} "
-        f"{colorama.Fore.GREEN}[🆔 {group['id']}]{colorama.Fore.RESET} "
-        f"{colorama.Fore.BLUE}[📁 {group['name']}]{colorama.Fore.RESET} "
-        f"{colorama.Fore.MAGENTA}[💬 {group['type']}]{colorama.Fore.RESET}"
-    )
     if start_time:
         time_passed = datetime.now() - start_time
         humanized_time = humanize.naturaldelta(time_passed)
-        log_id += f" {colorama.Fore.YELLOW}[⏱️ {humanized_time}]{colorama.Fore.RESET}"
+    else:
+        humanized_time = '-'
+    id = group['id'] if isinstance(group, dict) else '-'
+    name = group['name'] if isinstance(group, dict) else '-'
+    log_id = (
+        (f"{colorama.Fore.CYAN}🕒 {humanized_time} {colorama.Fore.RESET} " if humanized_time != '-' else '') +
+        (f"{colorama.Fore.GREEN}🆔 {id} {colorama.Fore.RESET} " if id != 0 else '') +
+        (f"{colorama.Fore.BLUE}📁 {name} {colorama.Fore.RESET} " if name != 'System' else '')
+    )
     return log_id
 
 
@@ -175,9 +172,9 @@ def show_process_stats(group, process, start_time, operation):
     return process.returncode
 
 def run_tg_archive(group):
-    global PROCESSED_MESSAGE_IDS
     group_id = group['id']
     group_dir = group['directory']
+    os.chdir(group_dir)
     start_time = datetime.now()
     config_path = os.path.join(group_dir, 'config.yaml')
     data_path = os.path.join(group_dir, 'data.sqlite')
@@ -187,78 +184,32 @@ def run_tg_archive(group):
                     '--config', config_path, 
                     '--data', data_path, 
                     '--path', group_dir, 
-                    '--session', SESSION_ID,
+                    '--session', SESSION_PATH,
                     '--template', template
                     ]
-    
     sync_command = base_command + ['--sync']
     build_command = base_command + ['--build']
-    
     try:
         group_size = os.path.getsize(data_path) if os.path.exists(data_path) else 0
-        print_cyan(group, f"Processing group {group_id} (Current size: {bytes_to_human(group_size)})", start_time)
-        
-        print_green(group, f"Running [sync] for group {group_id}, saving in {group_dir}", start_time)
-        process = subprocess.Popen(sync_command, cwd="/session", stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        print_cyan(group, f"size: {bytes_to_human(group_size)}, dir {group_dir}", None)
+        print_cyan(group, ' '.join(sync_command), None)
+        process = subprocess.Popen(sync_command, cwd=group_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         returncode = show_process_stats(group, process, start_time, "sync")
-        
         if returncode == 0:
             print_green(group, f"Successfully ran tg-archive sync for group {group_id}", start_time)
-
-            # Process messages
-            with sqlite3.connect(data_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT id, type, text FROM messages")
-                for message_id, message_type, message_text in cursor:
-                    if message_id in SKIP_MESSAGE_IDS:
-                        print_yellow(group, f"Skipping message {message_id} (configured in SKIP_MESSAGE_IDS)", start_time)
-                        continue
-                    if message_id in PROCESSED_MESSAGE_IDS:
-                        print_yellow(group, f"Skipping already processed message {message_id}", start_time)
-                        continue
-                    if message_type in SKIP_MESSAGE_TYPES:
-                        print_yellow(group, f"Skipping message {message_id} of type {message_type}", start_time)
-                        continue
-                    # Process the message
-                    print_green(group, f"Processing message {message_id} of type {message_type}", start_time)
-                    # Add your message processing logic here
-                    PROCESSED_MESSAGE_IDS.add(message_id)
+            print_green(group, ' '.join(build_command), start_time)
+            process = subprocess.Popen(build_command, cwd=group_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            returncode = show_process_stats(group, process, start_time, "build")
+            if returncode == 0: print_green(group, f"Successfully ran tg-archive build for group {group_id}", start_time)
+            else: print_red(group, f"ERR-2 running tg-archive build for group {group_id}", start_time)
+            final_size = os.path.getsize(data_path)
+            print_cyan(group, f"Finished processing group {group_id} (Final size: {bytes_to_human(final_size)})", start_time)
         else:
-            print_red(group, f"Error running tg-archive sync for group {group_id}", start_time)
-            output, _ = process.communicate()
-            last_10_lines = output.decode().splitlines()[-10:]
-            error_message = f"Error running tg-archive sync for group {group_id}\nLast 10 lines of the sync output:\n" + "\n".join(last_10_lines)
-            print_red(group, error_message, start_time)
-            return
-        
-        print_green(group, f" - Running [build] for group {group_id}", start_time)
-        process = subprocess.Popen(build_command, cwd="/session", stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        returncode = show_process_stats(group, process, start_time, "build")
-        
-        if returncode == 0:
-            print_green(group, f"Successfully ran tg-archive build for group {group_id}", start_time)
-        else:
-            print_red(group, f"Error running tg-archive build for group {group_id}", start_time)
-            output, _ = process.communicate()
-            if "jinja2.exceptions.UndefinedError: 'collections.OrderedDict object' has no attribute" in output.decode():
-                error_message = f" - Error running tg-archive build for group {group_id}: Template rendering error. The template is trying to access a date that doesn't exist in the data. Please check your template file and ensure all referenced dates are present in the data."
-            else:
-                last_10_lines = output.decode().splitlines()[-10:]
-                error_message = f"Error running tg-archive build for group {group_id}\nLast 10 lines of the build output:\n" + "\n".join(last_10_lines)
-            print_red(group, error_message, start_time)
-            return
-        
-        final_size = os.path.getsize(data_path)
-        print_cyan(group, f"Finished processing group {group_id} (Final size: {bytes_to_human(final_size)})", start_time)
+            print_red(group, f"ERR-1 running tg-archive sync for group {group_id}", start_time)
     except Exception as e:
-        error_message = f"Error running tg-archive for group {group_id}: {str(e)}"
-        print_red(group, error_message, start_time)
-
-import os
-import subprocess
-import time
-import humanize
-from datetime import datetime
+        print_red(group, str(e), start_time)
+        traceback.print_exc()
+        time.sleep(60000000)
 
 def get_directory_size(path):
     total_size = 0
@@ -269,7 +220,7 @@ def get_directory_size(path):
     return total_size
 
 def load_template(template_name):
-    with open(os.path.join('automation', 'templates', template_name), 'r') as f:
+    with open(os.path.join('/app', 'templates', template_name), 'r') as f:
         return f.read()
 
 def generate_index_html(groups):
@@ -295,7 +246,12 @@ def generate_index_html(groups):
                 dir_size_str=dir_size_str
             ))
     
-    html_content = index_template.format(group_list='\n'.join(group_list))
+    try:
+        html_content = index_template.format(group_list='\n'.join(group_list))
+    except KeyError as e:
+        print_red({'id': 0, 'name': 'System'}, f"Error formatting index template: {str(e)}")
+        print_red({'id': 0, 'name': 'System'}, "Check if all placeholders in the template are correctly filled.")
+        html_content = "<html><body><h1>Error generating index</h1><p>Please check the logs for more information.</p></body></html>"
     
     with open('/data/index.html', 'w') as f:
         f.write(html_content)
@@ -318,8 +274,8 @@ async def process_groups():
         dir_size = get_directory_size(group['directory'])
         print("\n---\n")
         progress_percentage = (index / total_groups) * 100
-        print_cyan(group, f"Progress: {progress_percentage:.2f}% ({index}/{total_groups})")
-        print_cyan(group, f"ID: {group['id']}, Name: {group['name']}, Type: {group['type']}, Size: {bytes_to_human(dir_size)}")
+        print_cyan({'id': 0, 'name': 'System'}, f"Progress: {progress_percentage:.2f}% ({index}/{total_groups})")
+        print_cyan(group, f"Type: {group['type']}, Size: {bytes_to_human(dir_size)}")
         run_tg_archive(group)
         group_end_time = time.time()
         group_processing_time = group_end_time - group_start_time
@@ -327,15 +283,14 @@ async def process_groups():
         avg_time = sum(processing_times) / len(processing_times)
         remaining_groups = total_groups - index
         estimated_completion_time = avg_time * remaining_groups
+        end_time = time.time()
+        total_time = end_time - start_time
+        avg_time = sum(processing_times) / len(processing_times)
         print_cyan(group, f"Time taken to process this group: {humanize.naturaldelta(group_processing_time)}")
         print_cyan(group, f"Average processing time: {humanize.naturaldelta(avg_time)}")
         print_cyan(group, f"Estimated time to complete all groups: {humanize.naturaldelta(estimated_completion_time)}")
         generate_index_html(groups)
-    
-    end_time = time.time()
-    total_time = end_time - start_time
-    avg_time = sum(processing_times) / len(processing_times)
-    
+        
     print_cyan({'id': 0, 'name': 'System'}, f"\nTotal groups processed: {total_groups}")
     print_cyan({'id': 0, 'name': 'System'}, f"Total time taken: {humanize.naturaldelta(total_time)}")
     print_cyan({'id': 0, 'name': 'System'}, f"Average time per group: {humanize.naturaldelta(avg_time)}")
@@ -358,6 +313,7 @@ def gen_session_config():
 
 def check_session():
     print(f'SESSION_PATH: {SESSION_PATH}')
+    os.chdir('/session')
     config_path = os.path.join('/session', 'config.yaml')
     config_content = gen_session_config()
     with open(config_path, 'w') as f:
@@ -372,8 +328,6 @@ def check_session():
             time.sleep(10)
 
 if __name__ == '__main__':
-    import asyncio
-    import time
     check_session()
     asyncio.get_event_loop().run_until_complete(process_groups())
     run_periodically(3600, lambda: asyncio.get_event_loop().run_until_complete(process_groups()))

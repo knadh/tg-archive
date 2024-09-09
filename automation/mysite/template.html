@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        {% set page_title = config.page_title.format(group=config.group, date=month.label, page=pagination.current) %} {% set meta_description =
+        config.meta_description.format(group=config.group, date=config.date) %}
+        <title>{{ page_title }}</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <meta name="description" content="{{ meta_description }}" />
+        <meta name="referrer" content="no-referrer" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="shortcut icon" href="static/favicon.png" />
+
+        <meta property="og:title" content="{{ page_title }}" />
+        <meta property="og:description" content="{{ meta_description }}" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="{{ config.site_url }}/.html" />
+        <meta property="og:image" content="{{ config.site_url }}/static/thumb.png" />
+
+        {% if config.publish_rss_feed %}
+        <link rel="alternate" type="application/rss+xml" title="RSS feed " href="index.xml" />
+        <link rel="alternate" type="application/atom+xml" title="Atom feed " href="index.atom" />
+        {% endif %}
+
+        <link rel="preconnect" href="https://fonts.gstatic.com" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+        <link href="static/style.css" rel="stylesheet" type="text/css" />
+    </head>
+    <body>
+        <div class="wrap">
+            <div class="container">
+                <nav class="nav">
+                    <a href="./">@{{ config.group }}</a>
+                    <label class="burger" for="burger" tabindex="0"><span></span><span></span><span></span></label>
+                </nav>
+                <input type="checkbox" id="burger" />
+
+                <section class="sidebar" id="sidebar">
+                    <header class="header">
+                        <div class="logo">
+                            <a href="{{ config.site_url }}"><img src="static/logo.svg" alt="" /></a>
+                            <p class="desc">
+                                <a href="{{ config.telegram_url.format(id=config.group) }}" rel="noreferer nopener nofollow">@{{ config.group }}</a> / {{
+                                config.site_description.format(group=config.group, date=config.date) }}
+                            </p>
+                        </div>
+                    </header>
+                    <ul class="timeline index">
+                        {% for year, months in timeline.items() | reverse %}
+                        <li class="">
+                            <h3 class="year"><a href="{{ months[0].slug }}.html">{{ year }}</a></h3>
+                            <ul class="months">
+                                {% for m in months | reverse %}
+                                <li class="{% if m.slug == month.slug %}selected{% endif %}">
+                                    <a href="{{ m.slug }}.html">
+                                        {{ m.label }}
+                                        <span class="count">({{ m.count }}) </span></a
+                                    >
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </li>
+                        {% endfor %}
+                    </ul>
+
+                    <footer class="footer">
+                        {% if config.publish_rss_feed %}
+                        <a href="index.xml">RSS feed.</a>
+                        {% endif %} &nbsp;&nbsp; Made with <a href="https://github.com/knadh/tg-archive">tg-archive</a>
+                    </footer>
+                </section>
+
+                <section class="content">
+                    {% if pagination.total > 1 %}
+                    <ul class="pagination top">
+                        {% for p in range(1, pagination.total + 1) %}
+                        <li class="{% if pagination.current == p %}active{% endif %}">
+                            <a href="{{ month.slug }}{% if p > 1 %}_{{ p }}{% endif %}.html">{{ p }}</a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+
+                    <ul class="messages">
+                        {% for m in messages %} {% set day = m.date.strftime("%d %B %Y") %} {% if loop.index0 == 0 or day != messages[loop.index0 - 1].date.strftime("%d %B %Y") %}
+                        <li class="day" id="{{ m.date.strftime('%Y-%m-%d') }}">
+                            <span class="title">{{ day }} <span class="count">({{ dayline[m.date.strftime("%Y-%m-%d")].count }} messages)</span></span>
+                        </li>
+                        {% endif %}
+                        <li class="message type-{{ m.type }}" id="{{ m.id }}">
+                            <div class="avatar">
+                                {% if m.user.avatar %}
+                                <img src="{{ config.media_dir }}/{{ m.user.avatar }}" alt="" />
+                                {% endif %}
+                            </div>
+
+                            <div class="body">
+                                <div class="meta">
+                                    <a href="{{ config.telegram_url.format(id=m.user.username) }}" class="username" rel="noreferer nopener nofollow">
+                                        {% if config.show_sender_fullname %} {{ m.user.first_name }} {{ m.user.last_name }} (@{{ m.user.username }}) {% else %} @{{ m.user.username
+                                        }} {% endif %}
+                                    </a>
+
+                                    {% if m.reply_to %}
+                                    <a class="reply" href="{{ page_ids[m.reply_to] }}#{{ m.reply_to }}">↶ Reply to #{{ m.reply_to }}</a>
+                                    {% endif %}
+
+                                    <a class="id" href="#{{ m.id }}">#{{ m.id }}</a>
+
+                                    {% if m.user.tags %} {% for t in m.user.tags %}
+                                    <span class="tags">{{ t }}</span>
+                                    {% endfor %} {% endif %}
+
+                                    <span class="date">{{ m.date.strftime("%I:%M %p, %d %b %Y") }}</span>
+                                </div>
+                                <div class="text">
+                                    {% if m.type == "message" %} {{ nl2br(m.content | escape) | safe | urlize }} {% else %} {% if m.type == "user_joined" %} Joined. {% elif m.type
+                                    == "user_joined_by_link" %} Joined by invite link. {% elif m.type == "user_left" %} Left. {% endif %} {% endif %}
+                                </div>
+                                {% if m.media %}
+                                <div class="media">
+                                    {% if m.media.type == "webpage" and (m.media.title or m.media.description) %}
+                                    <a href="{{ m.media.url }}" rel="noreferer nopener nofollow">{{ m.media.title or "Link" }}</a>
+                                    {% if m.media.description %}
+                                    <p>{{ m.media.description }}</p>
+                                    {% endif %} {% elif m.media.type == "poll" %}
+                                    <div class="poll">
+                                        <h4 class="title">{{ m.media.title }}</h4>
+                                        <span class="total-count"> {{ m.media.description | sum(attribute="count") }} vote(s). </span>
+                                        <ul class="options">
+                                            {% for o in m.media.description %}
+                                            <li>
+                                                <span class="count">{{ o.percent }}%, {{ o.count }} votes</span>
+                                                <span class="bar" style="width: {{ o.percent }}%"></span>
+                                                <label>{{ o.label }}</label>
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% elif m.media.type == "photo" %} {% set ext = m.media.url.split('/')[-1].split('.')[-1].lower() %} {% if ext in ['mp4', 'webm', 'ogg', 'ogv',
+                                    'oga', 'mov'] %}
+                                    <video controls>
+                                        <source src="{{ config.media_dir }}/{{ m.media.url }}" />
+                                    </video>
+                                    <p><a href="{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a></p>
+                                    {% elif ext in ['webp'] %}
+                                    <a href="{{ config.media_dir }}/{{ m.media.url }}">
+                                        <img src="{{ config.media_dir }}/{{ m.media.url }}" class="media-webp" />
+                                    </a>
+                                    {% elif m.media.thumb %}
+                                    <a href="{{ config.media_dir }}/{{ m.media.url }}">
+                                        <img src="{{ config.media_dir }}/{{ m.media.thumb }}" class="thumb" /><br />
+                                        <span class="filename">{{ m.media.title }}</span>
+                                    </a>
+                                    {% else %}
+                                    <a href="{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a>
+                                    {% endif %} {% else %}
+                                    <a href="{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+
+                    {% if pagination.total > 1 %}
+                    <ul class="pagination bottom">
+                        {% for p in range(1, pagination.total + 1) %}
+                        <li class="{% if pagination.current == p %}active{% endif %}">
+                            <a href="{{ month.slug }}{% if p > 1 %}_{{ p }}{% endif %}.html">{{ p }}</a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </section>
+                <!-- content -->
+
+                <section class="dayline">
+                    {% if config.show_day_index %}
+                    <ul class="index">
+                        {% for _, d in dayline.items() %}
+                        <li class="day-{{ d.slug }}">
+                            <a href="{{ make_filename(month, d.page) }}#{{ d.slug }}"> {{ d.date.strftime("%d %b %Y") }} <span class="count">({{ d.count }})</span> </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </section>
+            </div>
+            <!-- container -->
+        </div>
+        <script src="static/main.js"></script>
+    </body>
+</html>

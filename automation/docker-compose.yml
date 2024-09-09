@@ -1,0 +1,15 @@
+services:
+    tg-archive:
+        container_name: tg-archive
+        build: .
+
+        volumes:
+            - ./data:/data
+            - ./session:/session
+        environment:
+            - TZ=${TZ}
+            - API_ID=${API_ID}
+            - API_HASH=${API_HASH}
+            - UID=${UID}
+            - GID=${GID}
+            - TERM=xterm-256color

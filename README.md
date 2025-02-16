@@ -4,6 +4,7 @@
 
 **tg-archive** is a tool for exporting Telegram group chats into static websites, preserving chat history like mailing list archives.
 
+**IMPORTANT:** I'm no longer actively maintaining or developing this tool. Can review and merge PRs (as long as they're not massive and are clearly documented).
 
 ## Preview
 The [@fossunited](https://tg.fossunited.org) Telegram group archive.

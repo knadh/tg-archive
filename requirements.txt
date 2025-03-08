@@ -1,7 +1,8 @@
-telethon==1.24.0
+telethon==1.29.3
 jinja2>=2.11.3
 PyYAML>=5.4.1
 cryptg==0.2.post2
 Pillow>=8.3.2
 feedgen>=0.9.0
 python-magic>=0.4.24
+pytz>=2020.5

@@ -1,12 +1,16 @@
 ---
 # Telegram API ID and hash from the Telegram dev portal.
 # Signup for it here: https://my.telegram.org/auth?to=apps
+# You can remove api_id and api_hash here, and instead,
+# pass the environment variables API_ID and API_HASH to tg-archive
 api_id: "123456"
 api_hash: "your_api_hash"
 
-# Telegram channel / group name to import. Your user account
-# that was used to creat the API ID should be a member of this group.
-group: "your_group_name"
+# Telegram channel / group name or your group username or your group id(a negative number) to import. 
+# Your user account that was used to creat the API ID should 
+# be a member of this group.
+
+group: "your_group_name or your_group_username or your_group_id(a negative number)"
 
 # Avatars and media will be downloaded into media_dir.
 download_media: True
@@ -18,6 +22,14 @@ media_dir: "media"
 # It is the method used in the desktop client to export data.
 # You can use a larger fetch_batch_size. Set this as False to use the standard mode.
 use_takeout: False
+
+# Use a proxy to access Telegram
+# https://github.com/LonamiWebs/Telethon/blob/master/readthedocs/basic/signing-in.rst#signing-in-behind-a-proxy
+proxy:
+  enable: False
+  protocol: "socks5"
+  addr: "127.0.0.1"
+  port: 1080
 
 # These should be configured carefully to not get rate limited by Telegram.
 # Number of messages to fetch in one batch.
@@ -43,6 +55,11 @@ telegram_url: "https://t.me/{id}"
 # IMPORTANT: Telegram shows the full name on your (API key holder's)
 # phonebook for users who are in your phonebook.
 show_sender_fullname: False
+
+# Timezone to apply on timestamps when building the site. If no value
+# is specified, all timestamps are in UTC:
+# Eg: US/Eastern  Asia/Kolkata
+timezone: ""
 
 publish_rss_feed: True
 rss_feed_entries: 100 # Show Latest N messages in the RSS feed.

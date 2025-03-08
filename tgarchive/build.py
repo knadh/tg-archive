@@ -6,7 +6,6 @@ import pkg_resources
 import re
 import shutil
 import magic
-from datetime import timezone
 
 from feedgen.feed import FeedGenerator
 from jinja2 import Template
@@ -102,11 +101,11 @@ class Build:
 
     def load_template(self, fname):
         with open(fname, "r") as f:
-            self.template = Template(f.read())
+            self.template = Template(f.read(), autoescape=True)
 
     def load_rss_template(self, fname):
         with open(fname, "r") as f:
-            self.rss_template = Template(f.read())
+            self.rss_template = Template(f.read(), autoescape=True)
 
     def make_filename(self, month, page) -> str:
         fname = "{}{}.html".format(
@@ -143,25 +142,34 @@ class Build:
             e = f.add_entry()
             e.id(url)
             e.title("@{} on {} (#{})".format(m.user.username, m.date, m.id))
-            e.published(m.date.replace(tzinfo=timezone.utc))
             e.link({"href": url})
+            e.published(m.date)
 
             media_mime = ""
             if m.media and m.media.url:
                 murl = "{}/{}/{}".format(self.config["site_url"],
                                          os.path.basename(self.config["media_dir"]), m.media.url)
-                try:
-                    media_path = "{}/{}".format(self.config["media_dir"], m.media.url)
-                    media_mime = magic.from_file(media_path, mime=True)
-                    media_size = str(os.path.getsize(media_path))
-                except FileNotFoundError:
-                    media_mime = "application/octet-stream"
-                    media_size = 0
+                media_path = "{}/{}".format(self.config["media_dir"], m.media.url)
+                media_mime = "application/octet-stream"
+                media_size = 0
+
+                if "://" in media_path:
+                    media_mime = "text/html"
+                else:
+                    try:
+                        media_size = str(os.path.getsize(media_path))
+                        try:
+                            media_mime = magic.from_file(media_path, mime=True)
+                        except:
+                            pass
+                    except FileNotFoundError:
+                        pass
+
                 e.enclosure(murl, media_size, media_mime)
             e.content(self._make_abstract(m, media_mime), type="html")
 
-        f.rss_file(os.path.join(self.config["publish_dir"], "index.xml"))
-        f.atom_file(os.path.join(self.config["publish_dir"], "index.atom"))
+        f.rss_file(os.path.join(self.config["publish_dir"], "index.xml"), pretty=True)
+        f.atom_file(os.path.join(self.config["publish_dir"], "index.atom"), pretty=True)
 
     def _make_abstract(self, m, media_mime):
         if self.rss_template:
@@ -194,7 +202,7 @@ class Build:
         for f in [self.config["static_dir"]]:
             target = os.path.join(pubdir, f)
             if self.symlink:
-                os.symlink(os.path.abspath(f), target)
+                self._relative_symlink(os.path.abspath(f), target)
             elif os.path.isfile(f):
                 shutil.copyfile(f, target)
             else:
@@ -204,8 +212,14 @@ class Build:
         mediadir = self.config["media_dir"]
         if os.path.exists(mediadir):
             if self.symlink:
-                os.symlink(os.path.abspath(mediadir), os.path.join(
+                self._relative_symlink(os.path.abspath(mediadir), os.path.join(
                     pubdir, os.path.basename(mediadir)))
             else:
                 shutil.copytree(mediadir, os.path.join(
                     pubdir, os.path.basename(mediadir)))
+
+    def _relative_symlink(self, src, dst):
+        dir_path = os.path.dirname(dst)
+        src = os.path.relpath(src, dir_path)
+        dst = os.path.join(dir_path, os.path.basename(src))
+        return os.symlink(src, dst)

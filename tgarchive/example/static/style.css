@@ -278,8 +278,17 @@ div.body > div.text {
 	    border-left: 3px solid #ddd;
 	}
 		.messages .media .thumb {
+			max-width: 100%;
 			max-height: 150px;
 			width: auto;
+		}
+		.messages .media video {
+			max-width: 100%;
+			height: auto;
+			width: 500px;
+		}
+		.messages .media .media-webp {
+			width: 50%;
 		}
 
 	.messages .poll .title {
@@ -303,13 +312,16 @@ div.body > div.text {
 			min-width: 3px;
 		}
 
-	.messages .type-user_joined .text {
+	.messages .type-user_joined .text,
+	.messages .type-user_joined_by_link .text {
 		color: var(--light);
 		font-style: italic;
 	}
 
 .pagination {
 	text-align: right;
+	overflow-y: auto;
+	max-height: 100px;
 }
 	.pagination li {
 		display: inline-block;

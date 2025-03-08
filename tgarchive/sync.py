@@ -95,7 +95,25 @@ class Sync:
             "finished. fetched {} messages. last message = {}".format(n, last_date))
 
     def new_client(self, session, config):
-        client = TelegramClient(session, config["api_id"], config["api_hash"])
+        if "proxy" in config and config["proxy"].get("enable"):
+            proxy = config["proxy"]
+            client = TelegramClient(session, config["api_id"], config["api_hash"], proxy=(proxy["protocol"], proxy["addr"], proxy["port"]))
+        else:
+            client = TelegramClient(session, config["api_id"], config["api_hash"])
+        # hide log messages
+        # upstream issue https://github.com/LonamiWebs/Telethon/issues/3840
+        client_logger = client._log["telethon.client.downloads"]
+        client_logger._info = client_logger.info
+
+        def patched_info(*args, **kwargs):
+            if (
+                args[0] == "File lives in another DC" or
+                args[0] == "Starting direct file download in chunks of %d at %d, stride %d"
+            ):
+                return client_logger.debug(*args, **kwargs)
+            client_logger._info(*args, **kwargs)
+        client_logger.info = patched_info
+
         client.start()
         if config.get("use_takeout", False):
             for retry in range(3):
@@ -108,12 +126,12 @@ class Sync:
                     logging.info(
                         "please allow the data export request received from Telegram on your device. "
                         "you can also wait for {} seconds.".format(e.seconds))
-                    logging.info("press Enter key after allowing the data export request to continue..")
+                    logging.info(
+                        "press Enter key after allowing the data export request to continue..")
                     input()
                     logging.info("trying again.. ({})".format(retry + 2))
                 except errors.TakeoutInvalidError:
                     logging.info("takeout invalidated. delete the session.session file and try again.")
-                    raise
             else:
                 logging.info("could not initiate takeout.")
                 raise(Exception("could not initiate takeout."))
@@ -127,7 +145,7 @@ class Sync:
         messages = self._fetch_messages(group, offset_id, ids)
         # https://docs.telethon.dev/en/latest/quick-references/objects-reference.html#message
         for m in messages:
-            if not m or not m.sender:
+            if not m:
                 continue
 
             # Media.
@@ -152,6 +170,8 @@ class Sync:
             if m.action:
                 if isinstance(m.action, telethon.tl.types.MessageActionChatAddUser):
                     typ = "user_joined"
+                elif isinstance(m.action, telethon.tl.types.MessageActionChatJoinedByLink):
+                    typ = "user_joined_by_link"
                 elif isinstance(m.action, telethon.tl.types.MessageActionChatDeleteUser):
                     typ = "user_left"
 
@@ -162,7 +182,7 @@ class Sync:
                 edit_date=m.edit_date,
                 content=sticker if sticker else m.raw_text,
                 reply_to=m.reply_to_msg_id if m.reply_to and m.reply_to.reply_to_msg_id else None,
-                user=self._get_user(m.sender),
+                user=self._get_user(m.sender, m.chat),
                 media=med
             )
 
@@ -179,11 +199,40 @@ class Sync:
                                                 reverse=True)
             return messages
         except errors.FloodWaitError as e:
-            logging.info("flood waited: have to wait {} seconds".format(e.seconds))
+            logging.info(
+                "flood waited: have to wait {} seconds".format(e.seconds))
 
-    def _get_user(self, u) -> User:
+    def _get_user(self, u, chat) -> User:
         tags = []
+
+        # if user info is empty, check for message from group
+        if (
+            u is None and
+            chat is not None and
+            chat.title != ''
+            ):
+                tags.append("group_self")
+                avatar = self._downloadAvatarForUserOrChat(chat)
+                return User(
+                    id=chat.id,
+                    username=chat.title,
+                    first_name=None,
+                    last_name=None,
+                    tags=tags,
+                    avatar=avatar
+                )
+
         is_normal_user = isinstance(u, telethon.tl.types.User)
+
+        if isinstance(u, telethon.tl.types.ChannelForbidden):
+            return User(
+                id=u.id,
+                username=u.title,
+                first_name=None,
+                last_name=None,
+                tags=tags,
+                avatar=None
+            )
 
         if is_normal_user:
             if u.bot:
@@ -196,14 +245,7 @@ class Sync:
             tags.append("fake")
 
         # Download sender's profile photo if it's not already cached.
-        avatar = None
-        if self.config["download_avatars"]:
-            try:
-                fname = self._download_avatar(u)
-                avatar = fname
-            except Exception as e:
-                logging.error(
-                    "error downloading avatar: #{}: {}".format(u.id, e))
+        avatar = self._downloadAvatarForUserOrChat(u)
 
         return User(
             id=u.id,
@@ -225,7 +267,8 @@ class Sync:
         if msg.media.results.results:
             for i, r in enumerate(msg.media.results.results):
                 options[i]["count"] = r.voters
-                options[i]["percent"] = r.voters / total * 100 if total > 0 else 0
+                options[i]["percent"] = r.voters / \
+                    total * 100 if total > 0 else 0
                 options[i]["correct"] = r.correct
 
         return Media(
@@ -256,7 +299,8 @@ class Sync:
                 if len(self.config["media_mime_types"]) > 0:
                     if hasattr(msg, "file") and hasattr(msg.file, "mime_type") and msg.file.mime_type:
                         if msg.file.mime_type not in self.config["media_mime_types"]:
-                            logging.info("skipping media #{} / {}".format(msg.file.name, msg.file.mime_type))
+                            logging.info(
+                                "skipping media #{} / {}".format(msg.file.name, msg.file.mime_type))
                             return
 
                 logging.info("downloading media #{}".format(msg.id))
@@ -324,7 +368,7 @@ class Sync:
             return None
 
         im = Image.open(b)
-        im.thumbnail(self.config["avatar_size"], Image.ANTIALIAS)
+        im.thumbnail(self.config["avatar_size"], Image.LANCZOS)
         im.save(fpath, "JPEG")
 
         return fname
@@ -358,3 +402,14 @@ class Sync:
             exit(1)
 
         return entity.id
+
+    def _downloadAvatarForUserOrChat(self, entity):
+        avatar = None
+        if self.config["download_avatars"]:
+            try:
+                fname = self._download_avatar(entity)
+                avatar = fname
+            except Exception as e:
+                logging.error(
+                    "error downloading avatar: #{}: {}".format(entity.id, e))
+        return avatar

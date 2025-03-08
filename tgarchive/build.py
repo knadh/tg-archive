@@ -10,7 +10,6 @@ from datetime import timezone
 
 from feedgen.feed import FeedGenerator
 from jinja2 import Template
-from jinja2.filters import urlize, escape
 
 from .db import User, Message
 
@@ -115,7 +114,6 @@ class Build:
         return fname
 
     def _render_page(self, messages, month, dayline, fname, page, total_pages):
-        urlizer = self._urlize if self.config.get("html_messages") else self._urlize_raw
         html = self.template.render(config=self.config,
                                     timeline=self.timeline,
                                     dayline=dayline,
@@ -126,7 +124,7 @@ class Build:
                                                 "total": total_pages},
                                     make_filename=self.make_filename,
                                     nl2br=self._nl2br,
-                                    urlize=urlizer)
+                                    replace_msg_link=self._replace_msg_link)
 
         with open(os.path.join(self.config["publish_dir"], fname), "w", encoding="utf8") as f:
             f.write(html)
@@ -167,14 +165,13 @@ class Build:
         f.atom_file(os.path.join(self.config["publish_dir"], "index.atom"))
 
     def _make_abstract(self, m, media_mime):
-        urlizer = self._urlize if self.config.get("html_messages") else self._urlize_raw
         if self.rss_template:
             return self.rss_template.render(config=self.config,
                                             m=m,
                                             media_mime=media_mime,
                                             page_ids=self.page_ids,
                                             nl2br=self._nl2br,
-                                            urlize=urlizer)
+                                            replace_msg_link=self._replace_msg_link)
         out = m.content
         if not out and m.media:
             out = m.media.title
@@ -185,14 +182,10 @@ class Build:
         # Jinja's automatic hyperlinking of URLs.
         return _NL2BR.sub("\n\n", str(s)).replace("\n", "\n<br />")
 
-    def _urlize_raw(self, s) -> str:
-        # Escape raw text, apply jinja urlize and finally _urlize
-        return self._urlize(urlize(escape(s)))
-
-    def _urlize(self, s) -> str:
+    def _replace_msg_link(self, s) -> str:
         # Replace Telegram message links with site links
         result = re.sub(r"<a href=\"(https://t\.me/{}/)(\d+)\">".format(self.config["group"]),
-                        self._sub_msg_link, str(s))
+                        self._sub_msg_link, s)
         return result
 
     def _sub_msg_link(self, match):

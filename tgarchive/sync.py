@@ -125,7 +125,6 @@ class Sync:
         self.client.__exit__(None, None, None)
 
     def _get_messages(self, group, offset_id, ids=None) -> Message:
-        msg_text_type = "text" if self.config.get("html_messages") else "raw_text"
         messages = self._fetch_messages(group, offset_id, ids)
         # https://docs.telethon.dev/en/latest/quick-references/objects-reference.html#message
         for m in messages:
@@ -162,7 +161,7 @@ class Sync:
                 id=m.id,
                 date=m.date,
                 edit_date=m.edit_date,
-                content=sticker if sticker else getattr(m, msg_text_type),
+                content=sticker if sticker else m.text,
                 reply_to=m.reply_to_msg_id if m.reply_to and m.reply_to.reply_to_msg_id else None,
                 user=self._get_user(m.sender),
                 media=med

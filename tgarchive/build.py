@@ -179,7 +179,8 @@ class Build:
                                             m=m,
                                             media_mime=media_mime,
                                             page_ids=self.page_ids,
-                                            nl2br=self._nl2br)
+                                            nl2br=self._nl2br,
+                                            formatAsHTML=unparse)
         out = m.content
         if not out and m.media:
             out = m.media.title

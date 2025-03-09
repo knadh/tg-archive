@@ -123,7 +123,10 @@
 							</div>
 							<div class="text">
 								{% if m.type == "message" %}
-									{{ nl2br(m.content | escape) | safe | urlize }}
+    								{% if m.entities %}
+                                        {{ formatAsHTML(m.content, m.entities) | safe }}
+    								{% else %}
+	    								{{ nl2br(m.content | escape) | safe | urlize }}
 								{% else %}
 									{% if m.type == "user_joined" %}
 										Joined.

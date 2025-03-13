@@ -1,8 +1,8 @@
 from collections import OrderedDict, deque
+from importlib.metadata import version
 import logging
 import math
 import os
-import pkg_resources
 import re
 import shutil
 import magic
@@ -131,7 +131,7 @@ class Build:
         f = FeedGenerator()
         f.id(self.config["site_url"])
         f.generator(
-            "tg-archive {}".format(pkg_resources.get_distribution("tg-archive").version))
+            "tg-archive {}".format(version("tg-archive")))
         f.link(href=self.config["site_url"], rel="alternate")
         f.title(self.config["site_name"].format(group=self.config["group"]))
         f.subtitle(self.config["site_description"])

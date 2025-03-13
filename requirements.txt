@@ -24,6 +24,8 @@ pyyaml==6.0.2
     # via -r requirements.txt
 rsa==4.9
     # via telethon
+setuptools>=76.0.0
+	# via -r requirements.txt
 six==1.17.0
     # via python-dateutil
 telethon==1.39.0

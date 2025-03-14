@@ -6,6 +6,14 @@
 api_id: "123456"
 api_hash: "your_api_hash"
 
+# Get this from official telegram client
+# Refer https://github.com/LonamiWebs/Telethon/issues/4051#issuecomment-1497634201
+device_model: 'Python'
+system_version: 'Windows 10'
+app_version: '1.0.0 x64'
+system_lang_code: 'en-US'
+lang_code: 'en'
+
 # Telegram channel / group name or your group username or your group id(a negative number) to import. 
 # Your user account that was used to creat the API ID should 
 # be a member of this group.

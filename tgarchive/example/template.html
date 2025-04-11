@@ -1,217 +1,1442 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	{% set page_title = config.page_title.format(group=config.group, date=month.label, page=pagination.current) %}
-	{% set meta_description = config.meta_description.format(group=config.group, date=config.date) %}
-	<title>{{ page_title }}</title>
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-	<meta name="description" content="{{ meta_description }}" />
-	<meta name="referrer" content="no-referrer">
-	<meta name="viewport" content="width=device-width, initial-scale=1" />
-	<link rel="shortcut icon" href="static/favicon.png" />
+/**
+ * SPECTRA-004: Enhanced Telegram Archive
+ * Modern, responsive styling with dark/light theme support
+ */
 
-	<meta property="og:title" content="{{ page_title }}" />
-	<meta property="og:description" content="{{ meta_description }}" />
-	<meta property="og:type" content="website" />
-	<meta property="og:url" content="{{ config.site_url }}/.html" />
-	<meta property="og:image" content="{{ config.site_url }}/static/thumb.png" />
+/* Base Variables and Theming */
+:root {
+  /* Light theme (default) */
+  --color-primary: #1e88e5;
+  --color-primary-light: #64b5f6;
+  --color-primary-dark: #0d47a1;
+  --color-background: #ffffff;
+  --color-card: #f5f5f5;
+  --color-text: #212121;
+  --color-text-secondary: #757575;
+  --color-border: #e0e0e0;
+  --color-hover: #f0f0f0;
+  --color-success: #4caf50;
+  --color-warning: #ff9800;
+  --color-error: #f44336;
+  --color-link: #2196f3;
+  --color-code-bg: #f5f5f5;
+  --color-code-text: #37474f;
+  --color-poll-bar: #bbdefb;
+  --color-poll-correct: #a5d6a7;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+}
 
-	{% if config.publish_rss_feed %}
-		<link rel="alternate" type="application/rss+xml" title="RSS feed " href="index.xml" />
-		<link rel="alternate" type="application/atom+xml" title="Atom feed " href="index.atom" />
-	{% endif %}
+[data-theme="dark"] {
+  /* Dark theme */
+  --color-primary: #90caf9;
+  --color-primary-light: #64b5f6;
+  --color-primary-dark: #1565c0;
+  --color-background: #121212;
+  --color-card: #1e1e1e;
+  --color-text: #f5f5f5;
+  --color-text-secondary: #b0b0b0;
+  --color-border: #2c2c2c;
+  --color-hover: #2a2a2a;
+  --color-success: #81c784;
+  --color-warning: #ffb74d;
+  --color-error: #e57373;
+  --color-link: #64b5f6;
+  --color-code-bg: #2c2c2c;
+  --color-code-text: #e0e0e0;
+  --color-poll-bar: #1565c0;
+  --color-poll-correct: #388e3c;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.3);
+}
 
-	<link rel="preconnect" href="https://fonts.gstatic.com">
-	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet"> 
-	<link href="static/style.css" rel="stylesheet" type="text/css" />	
-</head>
-<body>
+/* Base styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
-<div class="wrap">
-	<div class="container">
-		<nav class="nav">
-			<a href="./">@{{ config.group }}</a>
-			<label class="burger" for="burger" tabindex="0"><span></span><span></span><span></span></label>
-		</nav>
-		<input type="checkbox" id="burger" />
+html, body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-text);
+  background-color: var(--color-background);
+  scroll-behavior: smooth;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
 
-		<section class="sidebar" id="sidebar">
-			<header class="header">
-				<div class="logo">
-					<a href="{{ config.site_url }}"><img src="static/logo.svg" alt="" /></a>
-					<p class="desc">
-						<a href="{{ config.telegram_url.format(id=config.group) }}" rel="noreferer nopener nofollow">@{{ config.group }}</a> /
-						{{ config.site_description.format(group=config.group, date=config.date) }}
-					</p>
-				</div>
-			</header>
-			<ul class="timeline index">
-		        {% for year, months in timeline.items() | reverse %}
-		        <li class="">
-		        	<h3 class="year"><a href="{{ months[0].slug }}.html">{{ year }}</a></h3>
-		        	<ul class="months">
-		        		{% for m in months | reverse %}
-		        			<li class="{% if m.slug == month.slug %}selected{% endif %}">
-		        				<a href="{{ m.slug }}.html">
-		        					{{ m.label }}
-		        					<span class="count">({{ m.count }})
-		        				</span></a>
-		        			</li>
-		        		{% endfor %}
-		        	</ul>
-		        </li>
-		        {% endfor %}
-			</ul>
+a {
+  color: var(--color-link);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
 
-			<footer class="footer">
-				{% if config.publish_rss_feed %}
-					<a href="index.xml">RSS feed.</a>
-				{% endif %} &nbsp;&nbsp;
-				Made with <a href="https://github.com/knadh/tg-archive">tg-archive</a>
-			</footer>
-		</section>
+a:hover {
+  text-decoration: underline;
+}
 
-		<section class="content">
-			{% if pagination.total > 1 %}
-				<ul class="pagination top">
-					{% for p in range(1, pagination.total + 1) %}
-						<li class="{% if pagination.current == p %}active{% endif %}">
-							<a href="{{ month.slug }}{% if p > 1 %}_{{ p }}{% endif %}.html">{{ p }}</a>
-						</li>
-					{% endfor %}
-				</ul>
-			{% endif %}
+ul, ol {
+  list-style: none;
+}
 
-			<ul class="messages">
-				{% for m in messages %}
-					{% set day = m.date.strftime("%d %B %Y") %}
-					{% if loop.index0 == 0 or day != messages[loop.index0 - 1].date.strftime("%d %B %Y") %}
-						<li class="day" id="{{ m.date.strftime('%Y-%m-%d') }}">
-							<span class="title">{{ day }} <span class="count">({{ dayline[m.date.strftime("%Y-%m-%d")].count }} messages)</span></span>
-						</li>
-					{% endif %}
-					<li class="message type-{{ m.type }}" id="{{ m.id }}">
-						<div class="avatar">
-							{% if m.user.avatar %}
-								<img src="{{ config.media_dir }}/{{ m.user.avatar }}" alt="" />
-							{% endif %}
-						</div>
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+}
 
-						<div class="body">
-							<div class="meta">
-								<a href="{{ config.telegram_url.format(id=m.user.username) }}" class="username" rel="noreferer nopener nofollow">
-									{% if config.show_sender_fullname %}
-										{{ m.user.first_name }} {{ m.user.last_name }} (@{{ m.user.username }})
-									{% else %}
-										@{{ m.user.username }}
-									{% endif %}
-								</a>
+img {
+  max-width: 100%;
+  height: auto;
+}
 
-								{% if m.reply_to %}
-									<a class="reply" href="{{ page_ids[m.reply_to] }}#{{ m.reply_to }}">↶ Reply to #{{ m.reply_to }}</a>
-								{% endif %}
+.container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
 
-								<a class="id" href="#{{ m.id }}">#{{ m.id }}</a>
+/* Header styles */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: var(--color-background);
+  box-shadow: var(--shadow-sm);
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
 
-								{% if m.user.tags %}
-									{% for t in m.user.tags %}
-										<span class="tags">{{ t }}</span>
-									{% endfor %}
-								{% endif %}
+.site-header .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
 
-								<span class="date">{{ m.date.strftime("%I:%M %p, %d %b %Y") }}</span>
-							</div>
-							<div class="text">
-								{% if m.type == "message" %}
-									{{ nl2br(m.content | escape) | safe | urlize }}
-								{% else %}
-									{% if m.type == "user_joined" %}
-										Joined.
-									{% elif m.type == "user_joined_by_link" %}
-										Joined by invite link.
-									{% elif m.type == "user_left" %}
-										Left.
-									{% endif %}
-								{% endif %}
-							</div>
-							{% if m.media %}
-								<div class="media">
-									{% if m.media.type == "webpage" and (m.media.title or m.media.description) %}
-										<a href="{{ m.media.url }}" rel="noreferer nopener nofollow">{{ m.media.title or "Link" }}</a>
-										{% if m.media.description %}
-											<p>{{ m.media.description }}</p>
-										{% endif %}
-									{% elif m.media.type == "poll" %}
-										<div class="poll">
-											<h4 class="title">{{ m.media.title }}</h4>
-											<span class="total-count">
-												{{ m.media.description | sum(attribute="count") }} vote(s).
-											</span>
-											<ul class="options">
-												{% for o in m.media.description %}
-													<li>
-														<span class="count">{{ o.percent }}%, {{ o.count }} votes</span>
-														<span class="bar" style="width: {{ o.percent }}%"></span>
-														<label>{{ o.label }}</label>
-													</li>
-												{% endfor %}
-											</ul>
-										</div>									
-									{% elif m.media.type == "photo" %}
-										{% set ext = m.media.url.split('/')[-1].split('.')[-1].lower() %}
-										{% if ext in ['mp4', 'webm', 'ogg', 'ogv', 'oga', 'mov'] %}
-											<video controls>
-												<source src="{{ config.media_dir }}/{{ m.media.url }}">
-											</video>
-											<p><a href="{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a></p>
-										{% elif ext in ['webp'] %}
-											<a href="{{ config.media_dir }}/{{ m.media.url }}">
-												<img src="{{ config.media_dir }}/{{ m.media.url }}" class="media-webp" />
-											</a>
-										{% elif m.media.thumb %}
-											<a href="{{ config.media_dir }}/{{ m.media.url }}">
-												<img src="{{ config.media_dir }}/{{ m.media.thumb }}" class="thumb" /><br />
-												<span class="filename">{{ m.media.title }}</span>
-											</a>
-										{% else %}
-											<a href="{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a>
-										{% endif %}
-									{% else %}
-										<a href="{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a>
-									{% endif %}
-								</div>
-							{% endif %}
-						</div>
-					</li>
-				{% endfor %}
-			</ul>
+.logo-area {
+  display: flex;
+  align-items: center;
+}
 
-			{% if pagination.total > 1 %}
-				<ul class="pagination bottom">
-					{% for p in range(1, pagination.total + 1) %}
-						<li class="{% if pagination.current == p %}active{% endif %}">
-							<a href="{{ month.slug }}{% if p > 1 %}_{{ p }}{% endif %}.html">{{ p }}</a>
-						</li>
-					{% endfor %}
-				</ul>
-			{% endif %}
-		</section><!-- content -->
+.logo {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: var(--color-text);
+}
 
-		<section class="dayline">
-			{% if config.show_day_index %}
-				<ul class="index">
-				{% for _, d in dayline.items() %}
-					<li class="day-{{ d.slug }}">
-						<a href="{{ make_filename(month, d.page) }}#{{ d.slug }}">
-							{{ d.date.strftime("%d %b %Y") }} <span class="count">({{ d.count }})</span>
-						</a>
-					</li>
-				{% endfor %}
-				</ul>
-			{% endif %}
-		</section>
-	</div><!-- container -->
-</div>
-<script src="static/main.js"></script>
-</body>
-</html>
+.logo img {
+  height: 32px;
+  width: auto;
+  margin-right: 0.5rem;
+}
+
+.theme-toggle {
+  margin-left: 1rem;
+  padding: 0.5rem;
+  color: var(--color-text-secondary);
+  border-radius: 50%;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.theme-toggle:hover {
+  background-color: var(--color-hover);
+  color: var(--color-text);
+}
+
+.sun-icon, .moon-icon {
+  display: none;
+}
+
+[data-theme="light"] .sun-icon,
+[data-theme="dark"] .moon-icon {
+  display: block;
+}
+
+.search-container {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 1rem;
+  position: relative;
+}
+
+.search-container input {
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 100px;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  transition: all 0.2s ease;
+}
+
+.search-container input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(30, 136, 229, 0.2);
+}
+
+.search-container button {
+  position: absolute;
+  right: 0.5rem;
+  padding: 0.5rem;
+  color: var(--color-text-secondary);
+  border-radius: 50%;
+  transition: color 0.2s ease;
+}
+
+.search-container button:hover {
+  color: var(--color-primary);
+}
+
+.menu-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 30px;
+  height: 20px;
+}
+
+.menu-toggle span {
+  height: 2px;
+  width: 100%;
+  background-color: var(--color-text);
+  transition: all 0.3s ease;
+}
+
+/* Main container layout */
+.main-container {
+  display: flex;
+  min-height: calc(100vh - 60px);
+}
+
+/* Sidebar styles */
+.sidebar {
+  width: 280px;
+  min-width: 280px;
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  padding: 1.5rem;
+  border-right: 1px solid var(--color-border);
+  background-color: var(--color-background);
+  position: sticky;
+  top: 60px;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.sidebar-header h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+#close-sidebar {
+  display: none;
+  font-size: 1.5rem;
+  color: var(--color-text-secondary);
+}
+
+.timeline-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  padding: 0.5rem;
+  background-color: var(--color-card);
+  border-radius: 8px;
+}
+
+.stat-item {
+  flex: 1;
+  min-width: calc(50% - 0.5rem);
+  text-align: center;
+  padding: 0.5rem;
+}
+
+.stat-value {
+  display: block;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.timeline-container {
+  margin-bottom: 1.5rem;
+}
+
+.timeline-years {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.timeline-year {
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.year-heading {
+  margin: 0;
+}
+
+.year-toggle {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-card);
+  color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: left;
+  transition: background-color 0.2s ease;
+}
+
+.year-toggle:hover {
+  background-color: var(--color-hover);
+}
+
+.year-toggle svg {
+  transition: transform 0.3s ease;
+}
+
+.year-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.timeline-months {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.timeline-month {
+  border-top: 1px solid var(--color-border);
+}
+
+.month-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  color: var(--color-text);
+  transition: background-color 0.2s ease;
+}
+
+.timeline-month.selected .month-link {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.timeline-month:not(.selected) .month-link:hover {
+  background-color: var(--color-hover);
+  text-decoration: none;
+}
+
+.message-count {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  background-color: var(--color-card);
+  padding: 0.2rem 0.5rem;
+  border-radius: 100px;
+}
+
+.timeline-month.selected .message-count {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.filter-options {
+  background-color: var(--color-card);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.filter-options h3 {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+.filter-group {
+  margin-bottom: 1rem;
+}
+
+.filter-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.filter-group select,
+.filter-group input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background-color: var(--color-background);
+  color: var(--color-text);
+}
+
+.filter-group input[type="date"] {
+  margin-bottom: 0.5rem;
+}
+
+.button {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-primary);
+  color: white;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  text-align: center;
+}
+
+.button:hover {
+  background-color: var(--color-primary-dark);
+  text-decoration: none;
+}
+
+.button-outline {
+  background-color: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+
+.button-outline:hover {
+  background-color: var(--color-hover);
+  color: var(--color-text);
+}
+
+.sidebar-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.sidebar-links a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  color: var(--color-text);
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.sidebar-links a:hover {
+  background-color: var(--color-hover);
+  text-decoration: none;
+}
+
+.footer-credits {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Content area styles */
+.content-area {
+  flex: 1;
+  padding: 1.5rem;
+  max-width: 100%;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.pagination-container.bottom {
+  margin-top: 1.5rem;
+  margin-bottom: 0;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.page-item {
+  display: inline-block;
+}
+
+.page-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--color-text);
+  transition: all 0.2s ease;
+}
+
+.page-item.active .page-link {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.page-item:not(.active) .page-link:hover {
+  background-color: var(--color-hover);
+  text-decoration: none;
+}
+
+.pagination-info {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.day-navigation {
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+.day-nav-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-card);
+  color: var(--color-text);
+  border-radius: 4px;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.day-nav-toggle:hover {
+  background-color: var(--color-hover);
+}
+
+.day-list-container {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  z-index: 10;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  box-shadow: var(--shadow-md);
+  padding: 1rem;
+  margin-top: 0.5rem;
+}
+
+.day-list-container.active {
+  display: block;
+}
+
+.day-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.day-item {
+  flex: 0 0 calc(14.28% - 0.5rem);
+}
+
+.day-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0.5rem;
+  background-color: var(--color-card);
+  border-radius: 4px;
+  color: var(--color-text);
+  transition: all 0.2s ease;
+}
+
+.day-link:hover {
+  background-color: var(--color-primary-light);
+  color: white;
+  text-decoration: none;
+}
+
+.day-name {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+}
+
+.day-link:hover .day-name {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.day-count {
+  font-size: 0.7rem;
+  background-color: var(--color-background);
+  color: var(--color-text-secondary);
+  padding: 0.1rem 0.3rem;
+  border-radius: 100px;
+  margin-top: 0.2rem;
+}
+
+.day-link:hover .day-count {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.filter-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-primary-light);
+  color: white;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+}
+
+.filter-status button {
+  padding: 0.25rem 0.5rem;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  transition: background-color 0.2s ease;
+}
+
+.filter-status button:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Message list styles */
+.messages-container {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.message-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.day-marker {
+  background-color: var(--color-card);
+  padding: 0.75rem 1rem;
+  position: sticky;
+  top: 60px;
+  z-index: 5;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.day-marker-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.day-title {
+  font-weight: 600;
+}
+
+.day-count {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.message-item {
+  display: flex;
+  padding: 1.25rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color 0.3s ease;
+}
+
+.message-item:last-child {
+  border-bottom: none;
+}
+
+.message-item.message-highlight {
+  background-color: rgba(30, 136, 229, 0.1);
+  animation: highlight-pulse 2s ease;
+}
+
+@keyframes highlight-pulse {
+  0%, 100% { background-color: rgba(30, 136, 229, 0.1); }
+  50% { background-color: rgba(30, 136, 229, 0.2); }
+}
+
+.message-avatar {
+  flex: 0 0 40px;
+  margin-right: 1rem;
+}
+
+.message-avatar img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--color-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.message-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.message-user {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.username {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.user-tags {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.user-tag {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.3rem;
+  background-color: var(--color-card);
+  color: var(--color-text-secondary);
+  border-radius: 100px;
+}
+
+.message-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.message-meta time {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.message-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reply-link, .message-id, .share-button {
+  color: var(--color-text-secondary);
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.reply-link:hover, .message-id:hover, .share-button:hover {
+  color: var(--color-primary);
+  background-color: var(--color-hover);
+  text-decoration: none;
+}
+
+.message-text {
+  margin-bottom: 0.75rem;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.system-message {
+  font-style: italic;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+}
+
+.message-media {
+  margin-top: 0.75rem;
+  max-width: 100%;
+}
+
+.media-webpage {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+.media-webpage:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.webpage-link {
+  display: block;
+  padding: 1rem;
+  color: var(--color-text);
+}
+
+.webpage-link:hover {
+  text-decoration: none;
+}
+
+.webpage-title {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  color: var(--color-primary);
+}
+
+.webpage-description {
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  color: var(--color-text-secondary);
+}
+
+.webpage-domain {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.media-poll {
+  background-color: var(--color-card);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.poll-title {
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.poll-stats {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.poll-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.poll-option {
+  width: 100%;
+}
+
+.option-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.option-label {
+  font-weight: 500;
+}
+
+.option-percent {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.option-bar-container {
+  height: 8px;
+  width: 100%;
+  background-color: var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.25rem;
+}
+
+.option-bar {
+  height: 100%;
+  background-color: var(--color-poll-bar);
+  border-radius: 4px;
+}
+
+.poll-option.correct .option-bar {
+  background-color: var(--color-poll-correct);
+}
+
+.option-votes {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.media-image {
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.media-image img {
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.media-image img:hover {
+  opacity: 0.9;
+}
+
+.media-caption {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.5rem;
+}
+
+.media-video {
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.media-video video {
+  width: 100%;
+  max-height: 500px;
+  border-radius: 8px;
+}
+
+.file-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background-color: var(--color-card);
+  border-radius: 8px;
+  color: var(--color-text);
+  transition: background-color 0.2s ease;
+}
+
+.file-link:hover {
+  background-color: var(--color-hover);
+  text-decoration: none;
+}
+
+.message-replies {
+  margin-top: 0.75rem;
+}
+
+.replies-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background-color: var(--color-card);
+  color: var(--color-text);
+  border-radius: 100px;
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease;
+}
+
+.replies-toggle:hover {
+  background-color: var(--color-hover);
+}
+
+.message-edited {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.reply-preview {
+  position: absolute;
+  z-index: 1000;
+  max-width: 400px;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  padding: 1rem;
+}
+
+.reply-preview .message-content {
+  max-height: 200px;
+  overflow: hidden;
+}
+
+.reply-preview .message-text {
+  font-size: 0.9rem;
+}
+
+/* Lightbox styles */
+.lightbox {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.9);
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.lightbox.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+}
+
+.lightbox-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-content {
+  max-width: 90%;
+  max-height: 80%;
+  position: relative;
+}
+
+.lightbox-content img {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+}
+
+.lightbox-controls {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+}
+
+.lightbox-nav {
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.lightbox-nav:hover {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+#lightbox-close {
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+#lightbox-close:hover {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+.lightbox-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 1rem;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Share dialog styles */
+.share-dialog {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-dialog.active {
+  display: flex;
+}
+
+.share-dialog-inner {
+  background-color: var(--color-background);
+  border-radius: 8px;
+  padding: 1.5rem;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: var(--shadow-lg);
+}
+
+.share-dialog-inner h3 {
+  margin-bottom: 1rem;
+}
+
+.share-url-container {
+  display: flex;
+  margin-bottom: 1rem;
+}
+
+.share-url-container input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+  background-color: var(--color-background);
+  color: var(--color-text);
+}
+
+.share-url-container button {
+  padding: 0.75rem;
+  background-color: var(--color-primary);
+  color: white;
+  border-radius: 0 4px 4px 0;
+  transition: background-color 0.2s ease;
+}
+
+.share-url-container button:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.share-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.share-buttons button {
+  flex: 1;
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-weight: 500;
+  transition: opacity 0.2s ease;
+}
+
+.share-telegram {
+  background-color: #0088cc;
+  color: white;
+}
+
+.share-twitter {
+  background-color: #1da1f2;
+  color: white;
+}
+
+.share-facebook {
+  background-color: #4267b2;
+  color: white;
+}
+
+.share-buttons button:hover {
+  opacity: 0.9;
+}
+
+#close-share-dialog {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: var(--color-card);
+  color: var(--color-text);
+  border-radius: 4px;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+#close-share-dialog:hover {
+  background-color: var(--color-hover);
+}
+
+/* Search results styles */
+.search-results {
+  display: none;
+  position: fixed;
+  top: 60px;
+  left: 0;
+  width: 100%;
+  height: calc(100vh - 60px);
+  background-color: var(--color-background);
+  z-index: 90;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.search-results.active {
+  display: block;
+  opacity: 1;
+}
+
+.search-results-inner {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.search-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.search-results-header h3 {
+  font-size: 1.3rem;
+}
+
+#close-search-results {
+  font-size: 1.5rem;
+  color: var(--color-text-secondary);
+}
+
+.search-stats {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.search-result-list-container {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.search-result-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.search-result-item {
+  padding: 1rem;
+  background-color: var(--color-card);
+  border-radius: 8px;
+  transition: transform 0.2s ease;
+}
+
+.search-result-item:hover {
+  transform: translateY(-2px);
+}
+
+.search-result-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.search-result-user {
+  font-weight: 600;
+}
+
+.search-result-date {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.search-result-text mark {
+  background-color: rgba(30, 136, 229, 0.2);
+  color: var(--color-text);
+}
+
+.search-result-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  color: var(--color-primary);
+}
+
+/* Code block highlighting */
+pre {
+  background-color: var(--color-code-bg);
+  color: var(--color-code-text);
+  padding: 1rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+code {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9rem;
+  background-color: var(--color-code-bg);
+  color: var(--color-code-text);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+pre code {
+  padding: 0;
+  background-color: transparent;
+}
+
+/* Hashtag styling */
+.hashtag {
+  color: var(--color-primary);
+}
+
+/* Media queries for responsive design */
+@media (max-width: 1024px) {
+  .main-container {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    min-width: auto;
+    position: fixed;
+    left: -100%;
+    top: 60px;
+    height: calc(100vh - 60px);
+    z-index: 80;
+    transition: left 0.3s ease;
+  }
+  
+  .sidebar.active {
+    left: 0;
+  }
+  
+  #close-sidebar {
+    display: block;
+  }
+  
+  .menu-toggle {
+    display: flex;
+  }
+  
+  .content-area {
+    padding: 1rem;
+  }
+  
+  .day-item {
+    flex: 0 0 calc(20% - 0.5rem);
+  }
+}
+
+@media (max-width: 768px) {
+  .site-header .container {
+    padding: 0 0.5rem;
+  }
+  
+  .search-container {
+    margin: 0 0.5rem;
+  }
+  
+  .logo span {
+    display: none;
+  }
+  
+  .content-area {
+    padding: 0.75rem;
+  }
+  
+  .message-item {
+    padding: 1rem 0.75rem;
+  }
+  
+  .message-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .message-meta {
+    margin-top: 0.5rem;
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .day-item {
+    flex: 0 0 calc(25% - 0.5rem);
+  }
+}
+
+@media (max-width: 480px) {
+  .search-container {
+    max-width: 200px;
+  }
+  
+  .pagination {
+    gap: 0.25rem;
+  }
+  
+  .page-link {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .message-avatar {
+    flex: 0 0 32px;
+    margin-right: 0.75rem;
+  }
+  
+  .message-avatar img,
+  .avatar-placeholder {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .day-item {
+    flex: 0 0 calc(33.33% - 0.5rem);
+  }
+  
+  .share-buttons {
+    flex-direction: column;
+  }
+}

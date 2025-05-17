@@ -14,6 +14,8 @@ import os
 import sqlite3
 import logging
 import hashlib
++import sqlite3
+import time
 from collections import namedtuple
 from datetime import datetime
 from typing import Iterator, Optional, Tuple, List, Any
@@ -115,33 +117,38 @@ class DB:
         self.retries = 3  # Number of retries for database operations
         self.initialize_db()
 
-    def initialize_db(self) -> None:
-        """Sets up the SQLite database connection and schema with retry mechanism."""
-        for attempt in range(self.retries):
-            try:
-                is_new = not os.path.isfile(self.dbfile)
-                self.conn = sqlite3.Connection(
-                    self.dbfile,
-                    detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
-                )
-                self.conn.create_function("PAGE", 2, _page)
-                if is_new:
-                    console.print(Panel("Initializing new database at [bold green]{}[/]".format(self.dbfile), title="DB Setup"))
-                    logging.info(f"Creating new database at {self.dbfile}")
-                    for s in schema.split("##"):
-                        self.conn.cursor().execute(s)
-                    self.conn.commit()
-                    console.print("[green]✓ Database created successfully![/]")
-                else:
-                    console.print(f"Connected to existing database: [bold]{self.dbfile}[/]")
-                    logging.info(f"Connected to existing database at {self.dbfile}")
-                return
-            except sqlite3.Error as e:
-                logging.error(f"Database initialization attempt {attempt+1}/{self.retries} failed: {e}")
-                console.print(f"[red]✗ Database init error: {e}[/]")
-                if attempt == self.retries - 1:
-                    raise Exception(f"Failed to initialize database after {self.retries} attempts: {e}")
-                time.sleep(1)  # Wait before retry
+def initialize_db(self) -> None:
+    """Sets up the SQLite database connection and schema with retry mechanism."""
+    for attempt in range(self.retries):
+        try:
+            self.conn = sqlite3.connect(
+                self.dbfile,
+                detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
+                timeout=5.0  # Helps prevent "database is locked" errors
+            )
+
+            self.conn.create_function("PAGE", 2, _page)
+
+            # Enable WAL mode for concurrent reads/writes
+            self.conn.execute("PRAGMA journal_mode=WAL;")
+
+            # Run schema setup
+            self.conn.executescript(schema)
+            self.conn.commit()
+
+            if os.path.exists(self.dbfile):
+                console.print(f"Connected to existing database: [bold]{self.dbfile}[/]")
+                logging.info(f"Connected to existing database at {self.dbfile}")
+            else:
+                console.print("[green]✓ Database created successfully![/]")
+
+            return
+        except sqlite3.Error as e:
+            logging.error(f"Database initialization attempt {attempt+1}/{self.retries} failed: {e}")
+            console.print(f"[red]✗ Database init error: {e}[/]")
+            if attempt == self.retries - 1:
+                raise Exception(f"Failed to initialize database after {self.retries} attempts: {e}")
+            time.sleep(1)  # Wait before retry
 
     def get_last_message_id(self) -> Tuple[int, Optional[datetime]]:
         """
@@ -345,36 +352,51 @@ class DB:
             console.print(f"[red]✗ Error counting messages: {e}[/]")
             return 0
 
-    def insert_user(self, u: User) -> None:
-        """
-        Inserts or updates a user record with retry mechanism.
-
-        Args:
-            u (User): Named tuple containing user data.
-        """
-        for attempt in range(self.retries):
-            try:
-                cur = self.conn.cursor()
-                cur.execute("""
-                    INSERT INTO users (id, username, first_name, last_name, tags, avatar, last_updated)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT (id)
-                    DO UPDATE SET
-                        username = excluded.username,
-                        first_name = excluded.first_name,
-                        last_name = excluded.last_name,
-                        tags = excluded.tags,
-                        avatar = excluded.avatar,
-                        last_updated = excluded.last_updated
-                """, (u.id, u.username, u.first_name, u.last_name, " ".join(u.tags or []), u.avatar, datetime.utcnow()))
-                logging.debug(f"Inserted/Updated user ID {u.id}")
-                return
-            except sqlite3.Error as e:
-                logging.error(f"Attempt {attempt+1}/{self.retries} failed to insert user ID {u.id}: {e}")
-                if attempt == self.retries - 1:
-                    console.print(f"[red]✗ Failed to insert user ID {u.id} after retries: {e}[/]")
-                    raise Exception(f"Failed to insert user after {self.retries} attempts: {e}")
-                time.sleep(1)
+def insert_user(self, u: User) -> None:
+    """
+    Inserts or updates a user record with retry mechanism and WAL safety.
+    """
+    backoff = 1.0
+    for attempt in range(1, self.retries + 1):
+        try:
+            cur = self.conn.cursor()
+            cur.execute("""
+                INSERT INTO users (id, username, first_name, last_name, tags, avatar, last_updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (id)
+                DO UPDATE SET
+                    username = excluded.username,
+                    first_name = excluded.first_name,
+                    last_name = excluded.last_name,
+                    tags = excluded.tags,
+                    avatar = excluded.avatar,
+                    last_updated = excluded.last_updated
+            """, (
+                u.id,
+                u.username,
+                u.first_name,
+                u.last_name,
+                " ".join(u.tags or []),
+                u.avatar,
+                datetime.utcnow()
+            ))
+            self.conn.commit()
+            logging.debug(f"Inserted/Updated user ID {u.id} (commit OK)")
+            return
+        except sqlite3.OperationalError as e:
+            if "locked" in str(e).lower():
+                logging.warning(f"[Attempt {attempt}] DB locked on insert_user({u.id}), backing off {backoff:.1f}s...")
+                console.print(f"[yellow]⚠ Attempt {attempt}: DB locked for user {u.id}, retrying...[/]")
+                time.sleep(backoff)
+                backoff *= 2  # exponential backoff
+            else:
+                logging.error(f"Unhandled SQLite error on insert_user({u.id}): {e}")
+                raise
+        except Exception as e:
+            logging.exception(f"Unexpected error inserting user {u.id}: {e}")
+            raise
+    console.print(f"[red]✗ Max retries exceeded for user {u.id}[/]")
+    raise Exception(f"insert_user failed for user {u.id} after {self.retries} attempts")
 
     def insert_media(self, m: Media) -> None:
         """

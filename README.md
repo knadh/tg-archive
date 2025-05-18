@@ -1,50 +1,105 @@
+# SPECTRA-Archive
 
-![favicon](https://user-images.githubusercontent.com/547147/111869334-eb48f100-89a4-11eb-9c0c-bc74cdee197a.png)
+![SPECTRA logo](https://user-images.githubusercontent.com/547147/111869334-eb48f100-89a4-11eb-9c0c-bc74cdee197a.png)
 
+> **SPECTRA** (Secure **P**ersistent **E**vent **C**ollection & **T**elegram **R**ecord **A**rchive) is a battle-hardened toolkit for exporting Telegram channels & groups into forensic-grade SQLite databases and publishing them as modern, searchable static websites.
 
-**tg-archive** is a tool for exporting Telegram group chats into static websites, preserving chat history like mailing list archives.
+---
 
-**IMPORTANT:** I'm no longer actively maintaining or developing this tool. Can review and merge PRs (as long as they're not massive and are clearly documented).
+## Why SPECTRA?
 
-## Preview
-The [@fossunited](https://tg.fossunited.org) Telegram group archive.
+* Built for investigators & threat-intel teams who need **verifiable, offline copies** of volatile chat data.
+* End-to-end workflow: **fetch → store → analyse → publish** — all from the CLI or an ncurses TUI.
+* Modular codebase: `spectra-002` (archiver) · `spectra-004` (DB) · `spectra-site` (builder) · `spectra-003` (orchestrator).
 
-![image](https://user-images.githubusercontent.com/547147/111869398-44188980-89a5-11eb-936f-01d98276ba6a.png)
+> **Note:** SPECTRA is actively maintained by **SWORD-EPI**. Pull requests are welcome – please keep them focused & well-documented.
 
+---
+
+## Live demo
+
+Archive of the [@fossunited](https://tg.fossunited.org) Telegram group generated with SPECTRA.
+
+![Screenshot](https://user-images.githubusercontent.com/547147/111869398-44188980-89a5-11eb-936f-01d98276ba6a.png)
+
+---
 
 ## How it works
-tg-archive uses the [Telethon](https://github.com/LonamiWebs/Telethon) Telegram API client to periodically sync messages from a group to a local SQLite database (file), downloading only new messages since the last sync. It then generates a static archive website of messages to be published anywhere.
+
+1. `spectra-archiver` uses [Telethon](https://github.com/LonamiWebs/Telethon) to incrementally pull messages, media & user avatars into a **single WAL-enabled SQLite database** (one DB can contain multiple channels).
+2. Checksums + foreign-key constraints guarantee integrity; checkpoints make every run fully **resumable**.
+3. `spectra-site-build` converts the DB into a **Tailwind-styled**, Chart.js-powered static site (one sub-site per channel).
+4. `spectra-orchestrator` ties it all together with a **multi-channel queue** and a curses UI.
+
+---
 
 ## Features
-- Periodically sync Telegram group messages to a local DB.
-- Download user avatars locally.
-- Download and embed media (files, documents, photos).
-- Renders poll results.
-- Use emoji alternatives in place of stickers.
-- Single file Jinja HTML template for generating the static site.
-- Year / Month / Day indexes with deep linking across pages.
-- "In reply to" on replies with links to parent messages across pages.
-- RSS / Atom feed of recent messages.
 
-## Install
-- Get [Telegram API credentials](https://my.telegram.org/auth?to=apps). Normal user account API and not the Bot API.
-  - If this page produces an alert stating only "ERROR", disconnect from any proxy/vpn and try again in a different browser.
+* 🔄 Incremental sync with resumable checkpoints
+* 🛡 WAL-mode SQLite, per-row checksums for forensic integrity
+* 👥 Avatar harvesting & username frequency analytics
+* 🖼 Media download with MIME whitelist & rotating proxy support
+* 📈 Responsive dashboard (stat cards, trend line, doughnut chart)
+* 🔍 Deep-link replies, full date hierarchy, RSS/Atom feed generator
+* 🖥 Interactive ncurses TUI **or** rich CLI flags
+* 🧩 Extensible Jinja2 template & Tailwind CSS assets
 
-- Install with: `uv pip install tg-archive` (tested with Python 3.13.2).
+---
 
-### Usage
+## Installation
 
-1. `tg-archive --new --path=mysite` (creates a new site. `cd` into mysite and edit `config.yaml`).
-1. `tg-archive --sync` (syncs data into `data.sqlite`).
-  Note: First time connection will prompt for your phone number + a Telegram auth code sent to the app. On successful auth, a `session.session` file is created. DO NOT SHARE this session file publicly as it contains the API autorization for your account.
-1. `tg-archive --build` (builds the static site into the `site` directory, which can be published)
+```bash
+# Recommended: Python 3.11+
+python -m pip install spectra-archive
+```
 
-### Customization
-Edit the generated `template.html` and static assets in the `./static` directory to customize the site.
+This installs the three entry-point commands:
 
-### Note
-- The sync can be stopped (Ctrl+C) any time to be resumed later.
-- Setup a cron job to periodically sync messages and re-publish the archive.
-- Downloading large media files and long message history from large groups continuously may run into Telegram API's rate limits. Watch the debug output.
+| Command                | Purpose                                  |
+| ---------------------- | ---------------------------------------- |
+| `spectra-orchestrator` | End-to-end queue runner (TUI by default) |
+| `spectra-archiver`     | Low-level single-channel fetcher         |
+| `spectra-site-build`   | Static-site generator for an existing DB |
 
-Licensed under the MIT license.
+> You’ll need a **Telegram API ID & hash** from [https://my.telegram.org/apps](https://my.telegram.org/apps) (user account, not bot).
+
+---
+
+## Quick start
+
+```bash
+# 1. Create skeleton site & config
+spectra-orchestrator --new
+
+# 2. Launch TUI, add channels, hit Esc to start queue
+spectra-orchestrator
+
+# 3. Or non-interactive, two channels in parallel
+spectra-orchestrator --queue @group1 @group2 --concurrent
+
+# Outputs
+#   spectra.sqlite3        ← forensic database
+#   site/<channel>/index.html  ← static archive ready to host
+```
+
+---
+
+## Customisation
+
+* Edit `template.html` inside each `site/<channel>/` folder to change layout.
+* Tailwind CDN is used by default — swap to local build if desired.
+* Modify `requirements.txt` & `setup.py` for additional plugins.
+
+---
+
+## Roadmap
+
+* 🔎 Full-text search (SQLite FTS5)
+* 🐳 Docker & OCI images
+* 📜 Signed snapshot export (WORM media)
+
+---
+
+### Licence
+
+MIT © 2025 John (SWORD-EPI) – see `LICENSE` file.

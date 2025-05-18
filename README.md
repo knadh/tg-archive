@@ -1,4 +1,4 @@
-# SPECTRA-Archive
+# SPECTRA
 
 ![SPECTRA logo](https://user-images.githubusercontent.com/547147/111869334-eb48f100-89a4-11eb-9c0c-bc74cdee197a.png)
 

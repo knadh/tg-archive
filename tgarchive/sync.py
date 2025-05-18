@@ -1,225 +1,439 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 """
-SPECTRA-002: Telegram Channel Archiving Script
-A comprehensive tool for archiving Telegram channels with robust error handling,
-progress visualization, and modular design for high-level cybersecurity applications.
-Developed for John under NSA-style codename conventions.
-"""
+SPECTRA-002 — Telegram Channel Archiver (v2.2)
+================================================
+*Multi-account* · *Proxy-rotating* · *Sidecar-metadata* · *Curses TUI*
 
-import os
-import sys
-import logging
+Overview
+--------
+A forensic-grade Telegram archiver designed for SWORD-EPI. New in **v2.2**:
+
+1. **Sidecar metadata** — every downloaded file now gains a `.json` twin
+   containing the parent message (inc. probable passwords, captions, user,
+   date, etc.).  Naming: `orig.ext` → `orig.ext.json`.
+2. **Full ncurses TUI** — interactive configuration via *npyscreen*: pick
+   account, channel, proxy profile, and options before launch.
+3. **Argparse flags** — `--no-tui` for headless automation.
+
+MIT-style licence.  © 2025 John (SWORD-EPI) – codename *SPECTRA-002*.
+"""
+from __future__ import annotations
+
+# ── Standard Library ──────────────────────────────────────────────────────
+import argparse
+import asyncio
+import contextlib
+import itertools
 import json
-import tempfile
-import shutil
-import time
+import logging
+import os
 import re
-from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Set
-from io import BytesIO
-from PIL import Image
-
-import telethon
-from telethon import TelegramClient, errors
-from telethon.tl.types import Message as TelethonMessage
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-from rich.prompt import Prompt, Confirm
-from tqdm import tqdm
 import sqlite3
+import sys
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from types import TracebackType
+from typing import Any, Dict, List, Optional, Tuple
 
-# Setup logging with detailed output to both console and file
-log_file = f"spectra_002_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+# ── Third-party ───────────────────────────────────────────────────────────
+import npyscreen  # type: ignore
+import socks      # PySocks for proxy support
+from PIL import Image  # type: ignore
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
+from telethon import TelegramClient, errors  # type: ignore
+from telethon.tl.custom.message import Message as TLMessage  # type: ignore
+from tqdm.asyncio import tqdm_asyncio  # type: ignore
+
+# ── Globals ───────────────────────────────────────────────────────────────
+APP_NAME = "spectra_002_archiver"
+__version__ = "2.2.0"
+TZ = timezone.utc
+console = Console()
+
+# ── Logging Setup ─────────────────────────────────────────────────────────
+LOGS_DIR = Path.cwd() / "logs"
+LOGS_DIR.mkdir(exist_ok=True)
+log_file = LOGS_DIR / f"{APP_NAME}_{datetime.now(tz=TZ).strftime('%Y%m%d_%H%M%S')}.log"
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(log_file),
-        logging.StreamHandler(sys.stdout)
-    ]
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[logging.FileHandler(log_file, encoding="utf-8"), logging.StreamHandler(sys.stdout)],
 )
+logger = logging.getLogger(APP_NAME)
 
+# ── Default configuration ────────────────────────────────────────────────
+DEFAULT_CFG: Dict[str, Any] = {
+    # legacy single-account
+    "api_id": int(os.environ.get("TG_API_ID", 0)),
+    "api_hash": os.environ.get("TG_API_HASH", ""),
 
+    # multi-account list
+    "accounts": [
+        {
+            "api_id": 123456,  # ← edit me
+            "api_hash": "0123456789abcdef0123456789abcdef",
+            "session_name": "spectra_1",
+        },
+    ],
+
+    # rotating proxy
+    "proxy": {
+        "host": "rotating.proxyempire.io",
+        "user": "PROXY_USER",
+        "password": "PROXY_PASS",
+        "ports": list(range(9000, 9010)),
+    },
+
+    # runtime options
+    "entity": "",  # channel/group @link or id
+    "db_path": "spectra.sqlite3",
+    "media_dir": "media",
+    "download_media": True,
+    "download_avatars": True,
+    "media_mime_whitelist": [],
+    "batch": 500,
+    "sleep_between_batches": 1.0,
+    "use_takeout": False,
+    "avatar_size": 128,
+    "collect_usernames": True,
+    "sidecar_metadata": True,
+}
+
+# ── Config loader ─────────────────────────────────────────────────────────
+@dataclass
 class Config:
-    """
-    Handles configuration loading and validation for SPECTRA-002.
-    Stores API credentials, media settings, and fetch limits.
-    """
-    def __init__(self, config_file: str = "spectra_config.json"):
-        self.config_file = config_file
-        self.defaults = {
-            "api_id": 0,
-            "api_hash": "",
-            "group": "",
-            "media_dir": "media",
-            "download_media": True,
-            "download_avatars": True,
-            "media_mime_types": [],
-            "fetch_limit": 0,
-            "fetch_batch_size": 100,
-            "fetch_wait": 2,
-            "use_takeout": False,
-            "avatar_size": (128, 128),
-            "collect_usernames": True  # New option for username collection
-        }
-        self.settings = self.load_config()
+    path: Path = Path("spectra_config.json")
+    data: Dict[str, Any] = field(default_factory=lambda: DEFAULT_CFG.copy())
 
-    def load_config(self) -> Dict:
-        """Loads configuration from file or creates a default one if not present."""
-        if not os.path.exists(self.config_file):
-            logging.warning(f"Config file {self.config_file} not found. Creating default.")
-            with open(self.config_file, 'w') as f:
-                json.dump(self.defaults, f, indent=2)
-            return self.defaults
-        try:
-            with open(self.config_file, 'r') as f:
-                return {**self.defaults, **json.load(f)}
-        except Exception as e:
-            logging.error(f"Error loading config: {e}. Using defaults.")
-            return self.defaults
+    def __post_init__(self):
+        if self.path.exists():
+            try:
+                self.data.update(json.loads(self.path.read_text()))
+            except json.JSONDecodeError as exc:
+                logger.warning("Bad JSON in config – using defaults (%s)", exc)
+        else:
+            self.save()
+            console.print(
+                "[yellow]Config not found; default created at"
+                f" {self.path}.  Edit credentials then rerun.[/yellow]"
+            )
+            sys.exit(1)
 
+        # back-compat
+        if not self.data.get("accounts"):
+            self.data["accounts"] = [
+                {
+                    "api_id": self.data["api_id"],
+                    "api_hash": self.data["api_hash"],
+                    "session_name": "spectra_legacy",
+                }
+            ]
 
-class DBHandler:
-    """
-    Manages SQLite database interactions for storing users, messages, and media.
-    Ensures robust error handling and transaction management.
-    """
-    def __init__(self, db_file: str = "spectra_database.db"):
+    # helpers
+    def save(self):
+        self.path.write_text(json.dumps(self.data, indent=2))
+
+    def __getitem__(self, item):
+        return self.data[item]
+
+    @property
+    def accounts(self):
+        return self.data["accounts"]
+
+    @property
+    def proxy_conf(self):
+        return self.data.get("proxy", {})
+
+# ── Proxy cycler ──────────────────────────────────────────────────────────
+class ProxyCycler:
+    def __init__(self, proxy_cfg: Dict[str, Any]):
+        self.host = proxy_cfg.get("host")
+        self.user = proxy_cfg.get("user")
+        self.password = proxy_cfg.get("password")
+        self.ports = proxy_cfg.get("ports", [])
+        if not all([self.host, self.user, self.password, self.ports]):
+            self.proxies = [None]
+        else:
+            self.proxies = [
+                (socks.SOCKS5, self.host, port, self.user, self.password) for port in self.ports
+            ]
+        self._it = itertools.cycle(self.proxies)
+
+    def next(self):
+        return next(self._it)
+
+# ── DB handler ────────────────────────────────────────────────────────────
+class DBHandler(contextlib.AbstractContextManager):
+    def __init__(self, db_file: Path):
         self.db_file = db_file
-        self.conn = None
-        self.cursor = None
-        self.setup_database()
+        self.conn: sqlite3.Connection | None = None
+        self.cur: sqlite3.Cursor | None = None
 
-    def setup_database(self) -> None:
-        """Sets up the SQLite database with necessary tables if they don't exist."""
+    def __enter__(self):
         self.conn = sqlite3.connect(self.db_file)
-        self.cursor = self.conn.cursor()
-        # Create tables (simplified for demonstration)
-        self.cursor.execute("""
+        self.conn.execute("PRAGMA journal_mode=WAL;")
+        self.conn.execute("PRAGMA foreign_keys=ON;")
+        self.cur = self.conn.cursor()
+        self._schema()
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.conn.rollback() if exc else self.conn.commit()
+        self.conn.close()
+        return False
+
+    def _schema(self):
+        self.cur.executescript(
+            """
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY,
                 username TEXT,
                 first_name TEXT,
                 last_name TEXT,
-                tags TEXT,
-                avatar TEXT
-            )
-        """
-        )
-        self.cursor.execute("""
+                avatar_path TEXT
+            );
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY,
-                type TEXT,
+                user_id INTEGER REFERENCES users(id),
                 date TEXT,
                 edit_date TEXT,
                 content TEXT,
-                reply_to INTEGER,
-                user_id INTEGER,
-                FOREIGN KEY(user_id) REFERENCES users(id)
-            )
-        """
-        )
-        self.cursor.execute("""
+                reply_to INTEGER
+            );
             CREATE TABLE IF NOT EXISTS media (
                 id INTEGER PRIMARY KEY,
-                type TEXT,
-                url TEXT,
-                title TEXT,
-                description TEXT,
-                thumb TEXT
-            )
-        """
-        )
-        # Setup username collection tables
-        self.setup_username_tables()
-        self.conn.commit()
-        logging.info("Database initialized successfully.")
-
-    def setup_username_tables(self) -> None:
-        """Set up tables for username collection."""
-        self.cursor.execute("""
+                message_id INTEGER REFERENCES messages(id),
+                mime_type TEXT,
+                file_path TEXT
+            );
             CREATE TABLE IF NOT EXISTS username_mentions (
                 id INTEGER PRIMARY KEY,
                 username TEXT,
-                message_id INTEGER,
+                message_id INTEGER REFERENCES messages(id),
                 date TEXT,
-                source_type TEXT,
-                FOREIGN KEY(message_id) REFERENCES messages(id)
-            )
-        """
+                source_type TEXT
+            );
+            """
         )
-        self.cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_username_mentions_username
-            ON username_mentions(username)
-        """
+
+    def last_message_id(self):
+        row = self.cur.execute("SELECT MAX(id) FROM messages").fetchone()
+        return row[0] if row and row[0] else None
+
+    # insert helpers
+    def add_user(self, u):
+        self.cur.execute(
+            "INSERT OR REPLACE INTO users(id, username, first_name, last_name, avatar_path) VALUES (?, ?, ?, ?, ?)",
+            (u.id, getattr(u, "username", None), getattr(u, "first_name", None), getattr(u, "last_name", None), None),
         )
-        self.conn.commit()
-        logging.info("Username collection tables initialized.")
 
-    def get_last_message_id(self) -> Tuple[Optional[int], Optional[str]]:
-        """Retrieves the last message ID and date from the database."""
-        self.cursor.execute("SELECT id, date FROM messages ORDER BY id DESC LIMIT 1")
-        result = self.cursor.fetchone()
-        return (result[0], result[1]) if result else (None, None)
-
-    def insert_user(self, user: Dict) -> None:
-        """Inserts a user record into the database."""
-        try:
-            self.cursor.execute(
-                "INSERT OR REPLACE INTO users (id, username, first_name, last_name, tags, avatar) VALUES (?, ?, ?, ?, ?, ?)",
-                (user['id'], user['username'], user['first_name'], user['last_name'], ','.join(user['tags']), user['avatar'])
-            )
-        except Exception as e:
-            logging.error(f"Error inserting user {user['id']}: {e}")
-
-    def insert_message(self, message: Dict) -> None:
-        """Inserts a message record into the database."""
-        try:
-            self.cursor.execute(
-                "INSERT OR REPLACE INTO messages (id, type, date, edit_date, content, reply_to, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (message['id'], message['type'], message['date'].isoformat(), 
-                 message['edit_date'].isoformat() if message['edit_date'] else None, 
-                 message['content'], message['reply_to'], message['user_id'])
-            )
-        except Exception as e:
-            logging.error(f"Error inserting message {message['id']}: {e}")
-
-    def insert_media(self, media: Dict) -> None:
-        """Inserts a media record into the database."""
-        try:
-            self.cursor.execute(
-                "INSERT OR REPLACE INTO media (id, type, url, title, description, thumb) VALUES (?, ?, ?, ?, ?, ?)",
-                (media['id'], media['type'], media['url'], media['title'], media['description'], media['thumb'])
-            )
-        except Exception as e:
-            logging.error(f"Error inserting media {media['id']}: {e}")
-
-    def store_username(self, username: str, message_id: int, date: str = None, source_type: str = "mention") -> None:
-        """Store a username mention in the database."""
-        if not date:
-            self.cursor.execute("SELECT date FROM messages WHERE id = ?", (message_id,))
-            result = self.cursor.fetchone()
-            date = result[0] if result else datetime.now().isoformat()
-        try:
-            self.cursor.execute(
-                "INSERT INTO username_mentions (username, message_id, date, source_type) VALUES (?, ?, ?, ?)",
-                (username, message_id, date, source_type)
-            )
-        except Exception as e:
-            logging.error(f"Error storing username {username}: {e}")
-
-    def get_usernames(self) -> List[Tuple[str, int]]:
-        """Get all collected usernames with mention counts."""
-        self.cursor.execute("""
-            SELECT username, COUNT(*) as mention_count 
-            FROM username_mentions 
-            GROUP BY username 
-            ORDER BY mention_count DESC
-        """
+    def add_message(self, d):
+        self.cur.execute(
+            "INSERT OR REPLACE INTO messages(id, user_id, date, edit_date, content, reply_to) VALUES (:id, :user_id, :date, :edit_date, :content, :reply_to)",
+            d,
         )
-        return self.cursor.fetchall()
 
-    def get_username_mentions(self, username: str) -> List[Dict]:
+    def add_media(self, d):
+        self.cur.execute(
+            "INSERT OR REPLACE INTO media(id, message_id, mime_type, file_path) VALUES (:id, :message_id, :mime_type, :file_path)",
+            d,
+        )
+
+    def add_username(self, username, msg_id, date, source="mention"):
+        self.cur.execute(
+            "INSERT INTO username_mentions(username, message_id, date, source_type) VALUES (?, ?, ?, ?)",
+            (username, msg_id, date, source),
+        )
+
+# ── Helper regexes ───────────────────────────────────────────────────────
+USERNAME_RE = re.compile(r"@([A-Za-z0-9_]{5,32})")
+
+def extract_usernames(text: str | None):
+    return USERNAME_RE.findall(text or "")
+
+# ── Sidecar writer ───────────────────────────────────────────────────────
+async def write_sidecar(msg: TLMessage, file_path: Path):
+    meta = {
+        "msg_id": msg.id,
+        "date": msg.date.astimezone(TZ).isoformat(),
+        "sender_id": msg.sender_id,
+        "sender_username": getattr(msg.sender, "username", None) if msg.sender else None,
+        "reply_to": msg.reply_to_msg_id,
+        "text": msg.message,
+        "mime_type": msg.file.mime_type if msg.file else None,
+    }
+    file_path.with_suffix(file_path.suffix + ".json").write_text(json.dumps(meta, indent=2))
+
+# ── Media downloader ─────────────────────────────────────────────────────
+async def safe_download_media(msg: TLMessage, dest: Path, mime_whitelist, sidecar=True):
+    if not msg.media:
+        return None
+    if mime_whitelist and msg.file.mime_type not in mime_whitelist:
+        return None
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        path = await msg.download_media(file=dest)
+        if path and sidecar:
+            await write_sidecar(msg, Path(path))
+        return path
+    except errors.FloodWaitError as e:
+        await asyncio.sleep(e.seconds + 5)
+        return await safe_download_media(msg, dest, mime_whitelist, sidecar)
+
+# ── Core archive pipeline ────────────────────────────────────────────────
+async def archive_channel(cfg: Config, account: Dict[str, Any], proxy_tuple):  # noqa: C901
+    progress = Progress(
+        TextColumn("{task.description}"),
+        BarColumn(),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+        console=console,
+    )
+    media_dir = Path(cfg["media_dir"])
+    media_dir.mkdir(exist_ok=True)
+
+    async with TelegramClient(account["session_name"], account["api_id"], account["api_hash"], proxy=proxy_tuple) as client:  # type: ignore
+        logger.info("Connected as %s via proxy=%s", await client.get_me(), proxy_tuple or "none")
+        entity = await client.get_entity(cfg["entity"])
+
+        with DBHandler(Path(cfg["db_path"])) as db:
+            last_id = db.last_message_id()
+            total = await client.get_messages(entity, limit=0)
+            task = progress.add_task("[green]Archiving", total=len(total))
+
+            with progress:
+                async for msg in client.iter_messages(entity, offset_id=last_id or 0, reverse=True, wait_time=cfg["sleep_between_batches"]):
+                    d = {
+                        "id": msg.id,
+                        "user_id": msg.sender_id,
+                        "date": msg.date.astimezone(TZ).isoformat(),
+                        "edit_date": msg.edit_date.astimezone(TZ).isoformat() if msg.edit_date else None,
+                        "content": msg.message,
+                        "reply_to": msg.reply_to_msg_id,
+                    }
+                    db.add_message(d)
+
+                    if msg.sender:
+                        db.add_user(msg.sender)
+
+                    if cfg["collect_usernames"]:
+                        for uname in extract_usernames(msg.message):
+                            db.add_username(uname, msg.id, d["date"])
+
+                    if cfg["download_media"] and msg.media:
+                        dest = media_dir / f"{msg.id}_{msg.file.id}"
+                        downloaded = await safe_download_media(msg, dest, cfg["media_mime_whitelist"], cfg["sidecar_metadata"])
+                        if downloaded:
+                            db.add_media({
+                                "id": msg.file.id,
+                                "message_id": msg.id,
+                                "mime_type": msg.file.mime_type,
+                                "file_path": str(Path(downloaded).relative_to(Path.cwd())),
+                            })
+
+                    progress.update(task, advance=1)
+
+            logger.info("Archive complete (%s msgs)", progress.tasks[task].completed)
+
+            if cfg["download_avatars"]:
+                await download_avatars(client, db, media_dir / "avatars", cfg["avatar_size"])
+
+async def download_avatars(client, db: DBHandler, avatar_root: Path, size):
+    avatar_root.mkdir(parents=True, exist_ok=True)
+    db.cur.execute("SELECT id FROM users WHERE avatar_path IS NULL")
+    rows = db.cur.fetchall()
+    for (uid,) in tqdm_asyncio(rows, desc="avatars", unit="avatar"):
+        try:
+            photo = await client.download_profile_photo(uid, file=avatar_root / f"{uid}.jpg")
+            if photo:
+                img = Image.open(photo)
+                img.thumbnail((size, size))
+                img.save(photo)
+                db.cur.execute("UPDATE users SET avatar_path = ? WHERE id = ?", (str(photo), uid))
+        except errors.FloodWaitError as e:
+            logger.warning("Avatar flood-wait %s", e.seconds)
+            await asyncio.sleep(e.seconds + 3)
+        except Exception:
+            logger.exception("Avatar fail %s", uid)
+
+# ── Runner with proxy & account rotation ─────────────────────────────────
+async def runner(cfg: Config):
+    pc = ProxyCycler(cfg.proxy_conf)
+    accounts = cfg.accounts
+    for account in itertools.cycle(accounts):
+        proxy = pc.next()
+        try:
+            await archive_channel(cfg, account, proxy)
+            break
+        except errors.FloodWaitError as e:
+            logger.warning("Flood-wait %s s – rotating proxy", e.seconds)
+            await asyncio.sleep(min(e.seconds, 60))
+            continue
+        except (errors.AuthKeyDuplicatedError, errors.AuthKeyInvalidError):
+            logger.error("Auth key issue – switching account")
+            continue
+        except KeyboardInterrupt:
+            raise
+        except Exception:
+            logger.exception("Unexpected error – retrying")
+            continue
+
+# ── npyscreen TUI ────────────────────────────────────────────────────────
+class SpectraApp(npyscreen.NPSAppManaged):
+    def onStart(self):
+        self.addForm("MAIN", MenuForm, name="SPECTRA-002 Archiver")
+
+class MenuForm(npyscreen.ActionForm):
+    def create(self):
+        self.cfg = Config()
+        self.add(npyscreen.FixedText, value="Select Telegram account:")
+        sessions = [acc["session_name"] for acc in self.cfg.accounts]
+        self.acc_sel = self.add(npyscreen.TitleSelectOne, max_height=len(sessions)+2, values=sessions, scroll_exit=True)
+        self.add(npyscreen.FixedText, value="Channel / group (entity):")
+        self.entity = self.add(npyscreen.TitleText, name="@channel or id:", value=self.cfg["entity"])
+        self.proxy_chk = self.add(npyscreen.Checkbox, name="Use rotating proxy", value=bool(self.cfg.proxy_conf.get("host")))
+        self.dl_media = self.add(npyscreen.Checkbox, name="Download media", value=self.cfg["download_media"])
+        self.sidecar = self.add(npyscreen.Checkbox, name="Write sidecar metadata", value=self.cfg["sidecar_metadata"])
+
+    def on_ok(self):
+        idx = self.acc_sel.value[0] if self.acc_sel.value else 0
+        self.cfg.data["accounts"] = [self.cfg.accounts[idx]]
+        self.cfg.data["entity"] = self.entity.value
+        self.cfg.data["download_media"] = self.dl_media.value
+        self.cfg.data["sidecar_metadata"] = self.sidecar.value
+        self.parentApp.setNextForm(None)
+        self.cfg.save()
+        console.clear()
+        asyncio.run(runner(self.cfg))
+
+    def on_cancel(self):
+        self.parentApp.setNextForm(None)
+
+# ── Entrypoint & CLI ─────────────────────────────────────────────────────
+def main():
+    p = argparse.ArgumentParser(description="SPECTRA-002 Telegram archiver")
+    p.add_argument("--no-tui", action="store_true", help="run without ncurses UI")
+    args = p.parse_args()
+
+    cfg = Config()
+
+    if not args.no_tui and sys.stdin.isatty():
+        SpectraApp().run()
+    else:
+        try:
+            asyncio.run(runner(cfg))
+        except KeyboardInterrupt:
+            console.print("\n[bold red]Interrupted.[/]")
+        except Exception:
+            logger.exception("Fatal")
+            sys.exit(99)
+
+if __name__ == "__main__":
+    main()

@@ -65,3 +65,4 @@ tga/pyvenv.cfg
 .venv/bin/activate.fish
 .venv/bin/activate.csh
 .venv/bin/activate
+/.venv

@@ -1,0 +1,64 @@
+{
+  "accounts": [
+    {
+      "api_id": 12345678,
+      "api_hash": "abcdef1234567890abcdef1234567890",
+      "session_name": "account1",
+      "phone_number": "+1234567890",
+      "password": ""
+    }
+  ],
+  "proxy": {
+    "enabled": true,
+    "type": "socks5",
+    "host": "rotating.proxyempire.io",
+    "port": 9000,
+    "username": "your_username",
+    "password": "your_password",
+    "rotation": {
+      "enabled": true,
+      "ports": [9000, 9001, 9002, 9003, 9004, 9005]
+    }
+  },
+  "archive": {
+    "download_media": true,
+    "download_avatars": true,
+    "archive_topics": true,
+    "media_types": ["photo", "video", "document", "audio", "voice", "sticker"],
+    "max_file_size_mb": 50,
+    "output_format": "json"
+  },
+  "discovery": {
+    "max_messages": 1000,
+    "max_depth": 2,
+    "include_private": true,
+    "include_public": true
+  },
+  "parallel": {
+    "enabled": true,
+    "max_workers": 4,
+    "max_tasks_per_account": 50,
+    "rate_limit": {
+      "join_delay_seconds": 30,
+      "message_delay_seconds": 2
+    }
+  },
+  "account_rotation": {
+    "mode": "smart",
+    "cooldown_hours": 2,
+    "max_operations_per_account": 100,
+    "flood_wait_multiplier": 1.5
+  },
+  "db": {
+    "path": "spectra.db",
+    "export_csv": false,
+    "backup_interval_hours": 24
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "spectra.log",
+    "console": true,
+    "max_size_mb": 10,
+    "backup_count": 5
+  }
+}

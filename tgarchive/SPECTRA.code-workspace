@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../telegram-groups-crawler"
+		},
+		{
+			"path": "../../TELESMASHER"
+		}
+	],
+	"settings": {}
+}

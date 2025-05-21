@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "datapilot": {
-      "url": "http://localhost:7706/sse",
+      "url": "http://localhost:7700/sse",
       "type": "sse"
     }
   }

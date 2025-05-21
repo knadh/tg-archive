@@ -42,6 +42,15 @@ def list_requirements() -> list[str]:
         "Pillow>=10",
         "npyscreen>=4.10",
         "jinja2>=3",
+        "networkx>=3.0",
+        "matplotlib>=3.6",
+        "pandas>=1.5",
+        "python-magic>=0.4.27",
+        "pyaes>=1.6.1",
+        "pyasn1>=0.6.0",
+        "rsa>=4.9",
+        "feedgen>=0.9.0",
+        "lxml>=4.9.2",
     ]
 
 # ---------------------------------------------------------------------
@@ -55,21 +64,22 @@ long_description = (root / "README.md").read_text() if (root / "README.md").exis
 setup(
     name="spectra-archive",
     version=version,
-    description="Telegram archiving & static-site toolkit (SPECTRA)",
+    description="Telegram archiving & discovery toolkit (SPECTRA)",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="John (SWORD-EPI)",
     author_email="n/a",
     url="https://github.com/SWORDIntel/SPECTRA002",
-    packages=find_packages(include=["spectra_*"]),
+    packages=find_packages(include=["tgarchive*"]),
     install_requires=list_requirements(),
     include_package_data=True,
     license="MIT",
     python_requires=">=3.10",
     entry_points={
         "console_scripts": [
-            "spectra-orchestrator = spectra_003_main:main",
-            "spectra-archiver   = spectra_002_archiver:main",
+            "spectra-archiver   = tgarchive.sync:main",
+            "spectra-discovery  = tgarchive.__main__:main",
+            "spectra            = tgarchive.__main__:main",
             "spectra-site-build = build_site:build_site",
         ],
     },
@@ -79,5 +89,8 @@ setup(
         "Topic :: Communications :: Chat",
         "Topic :: Internet :: WWW/HTTP :: Site Management",
         "Environment :: Console",
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Information Technology",
+        "Intended Audience :: Science/Research",
     ],
 )

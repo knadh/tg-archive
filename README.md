@@ -23,7 +23,7 @@ SPECTRA is an advanced framework for Telegram data collection, network discovery
 
 ```bash
 # Clone the repository
-git clone https://github.com/username/SPECTRA.git
+git clone https://github.com/SWORDIntel/SPECTRA.git
 cd SPECTRA
 
 # Create virtual environment

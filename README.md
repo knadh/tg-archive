@@ -17,6 +17,7 @@ SPECTRA is an advanced framework for Telegram data collection, network discovery
 - 🗄️ **SQL database storage** for all discovered groups, relationships, and archive metadata
 - ⚡ **Parallel processing** leveraging multiple accounts and proxies simultaneously
 - 🖥️ **Modern TUI** (npyscreen) and CLI, both using the same modular backend
+- ☁️ **Cloud Mode:** Traverse a series of channels, discover related channels, and download text/archive files with specific rules, using a single API key.
 - 🛡️ **Red team/OPSEC features**: account/proxy rotation, SQL audit trail, sidecar metadata, persistent state
 
 ## Installation
@@ -149,6 +150,46 @@ python -m tgarchive batch --file groups.txt --parallel --max-workers 4
 # Run discovery in parallel
 python -m tgarchive discover --seeds-file seeds.txt --parallel --max-workers 4
 ```
+
+### Cloud Mode
+
+This mode is designed for automated traversal and targeted downloading from an initial set of seed channels. It uses a single API key to explore channels, discover new ones through links in messages (up to a defined depth), and download specific file types (text and common archives) into an organized output directory.
+
+**Command Structure:**
+```bash
+python -m tgarchive cloud --channels-file <path_to_channels.txt> --output-dir <path_to_output_directory> [options]
+```
+
+**Arguments:**
+
+*   `--channels-file PATH`: Required. Path to a text file containing the initial list of seed channel URLs or IDs (one per line).
+*   `--output-dir PATH`: Required. Directory where downloaded files (in `text_files/` and `archive_files/` subfolders) and the `cloud_download_log.csv` will be stored.
+*   `--max-depth INT`: Optional. Maximum depth to follow channel links during discovery. Default is 2.
+*   `--min-files-gateway INT`: Optional. Minimum number of files a channel should ideally have to be considered a 'gateway' for focused downloading (Note: current implementation downloads from all accessible discovered channels; this option is for future refinement). Default is 100.
+
+**API Key Usage:**
+
+Cloud mode is designed to use a single API key (specifically, the first account configured in your `spectra_config.json` or imported from `gen_config.py`) for all its operations. This is to avoid potentially joining the same channel with multiple accounts, which might be undesirable for certain operational goals.
+
+**Output Structure:**
+
+In the specified output directory, you will find:
+
+*   `text_files/`: Contains downloaded plain text files.
+*   `archive_files/`: Contains downloaded archive files (e.g., .zip, .rar) along with their metadata in `.json` sidecar files (e.g., `example.zip.json`).
+*   `cloud_download_log.csv`: A CSV log detailing every downloaded file, its source channel, message ID, timestamp, and other metadata.
+
+**Running Long Cloud Sessions:**
+
+For extended cloud mode operations, it is highly recommended to use a terminal multiplexer like `screen` or `tmux` to ensure the process continues running even if your connection drops.
+
+Example using `screen`:
+1. Start a new screen session: `screen -S spectra_cloud_session`
+2. Run the command: `python -m tgarchive cloud --channels-file your_seeds.txt --output-dir ./cloud_output`
+3. Detach from the session: Press `Ctrl+A` then `D`.
+4. To reattach later: `screen -r spectra_cloud_session`
+
+SPECTRA will not install `screen` or `tmux` for you. Please install them using your system's package manager if needed (e.g., `sudo apt install screen`).
 
 ---
 

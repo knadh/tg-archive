@@ -25,6 +25,12 @@ from .discovery import (
     enhance_config_with_gen_accounts
 )
 
+try:
+    from .cloud_processor import CloudProcessor
+except ImportError:
+    CloudProcessor = None # Or handle more gracefully if cloud mode is essential
+    logger.debug("CloudProcessor could not be imported. Cloud mode might be unavailable.")
+
 # ── Try to import TUI ────────────────────────────────────────────────────────
 try:
     from .spectra_tui import main as tui_main
@@ -120,6 +126,13 @@ def setup_parser() -> argparse.ArgumentParser:
     account_parser.add_argument("--reset", action="store_true", help="Reset usage counts for all accounts")
     account_parser.add_argument("--test", action="store_true", help="Test all accounts for connectivity")
     account_parser.add_argument("--import", action="store_true", dest="import_accs", help="Import accounts from gen_config.py")
+    
+    # Cloud command
+    cloud_parser = subparsers.add_parser("cloud", help="Run in cloud mode for targeted channel traversal and downloading.")
+    cloud_parser.add_argument("--channels-file", type=str, required=True, help="Path to a file containing the initial list of channel URLs or IDs (one per line).")
+    cloud_parser.add_argument("--output-dir", type=str, required=True, help="Directory to store downloaded files and logs for the cloud mode session.")
+    cloud_parser.add_argument("--max-depth", type=int, default=2, help="Maximum depth to follow channel links during discovery (default: 2).")
+    cloud_parser.add_argument("--min-files-gateway", type=int, default=100, help="Minimum number of files a channel must have to be considered a 'gateway' for focused downloading (default: 100).")
     
     return parser
 
@@ -497,6 +510,58 @@ async def handle_accounts(args: argparse.Namespace) -> int:
         logger.error(f"Account management failed: {e}")
         return 1
 
+async def handle_cloud(args: argparse.Namespace) -> int:
+    """Handle cloud command"""
+    logger.info("Cloud mode invoked with the following arguments:")
+    logger.info(f"  Channels file: {args.channels_file}")
+    logger.info(f"  Output directory: {args.output_dir}")
+    logger.info(f"  Max depth: {args.max_depth}")
+    logger.info(f"  Min files for gateway: {args.min_files_gateway}")
+
+    # Load configuration
+    cfg = Config(Path(args.config))
+    
+    # Note: Global args.import_accounts is handled in async_main, 
+    # which calls enhance_config_with_gen_accounts and saves the config.
+    # Thus, cfg here should reflect any imported accounts.
+
+    accounts = cfg.accounts
+    if not accounts:
+        logger.error("No API accounts configured. Cannot proceed with cloud mode.")
+        logger.error("Please configure accounts, e.g., by running `python gen_config.py` and then `python -m tgarchive accounts --import` or by ensuring spectra_config.json has accounts.")
+        return 1
+
+    selected_account = accounts[0]  # Select the first available account
+    logger.info(f"Cloud mode will use the single API account: {selected_account.get('session_name', 'N/A')}")
+    logger.info(f"Account details (for verification): API ID {selected_account.get('api_id')}")
+
+    if CloudProcessor is None:
+        logger.error("CloudProcessor is not available. Cannot run cloud mode. Please check for import errors.")
+        return 1
+
+    logger.info(f"Initializing CloudProcessor with output directory: {args.output_dir}")
+    # Ensure output directory exists before CloudProcessor tries to use it for logging
+    Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+
+    processor = CloudProcessor(
+        selected_account=selected_account,
+        channels_file=args.channels_file,
+        output_dir=args.output_dir,
+        max_depth=args.max_depth,
+        min_files_gateway=args.min_files_gateway,
+        config=cfg
+    )
+
+    try:
+        logger.info("Starting cloud mode channel processing...")
+        await processor.process_channels()
+        logger.info("Cloud mode processing completed successfully.")
+        return 0  # Success
+    except Exception as e:
+        # Log the full traceback for unexpected errors
+        logger.error(f"An critical error occurred during cloud mode processing: {e}", exc_info=True)
+        return 1  # Failure
+
 # ── Parallel operation handlers ───────────────────────────────────────────────
 async def handle_parallel_discover(args: argparse.Namespace) -> int:
     """Handle parallel discover command"""
@@ -809,6 +874,8 @@ async def async_main(args: argparse.Namespace) -> int:
         return await handle_accounts(args)
     elif args.command == "parallel":
         return await handle_parallel(args)
+    elif args.command == "cloud":
+        return await handle_cloud(args)
     else:
         # No command or unrecognized command
         if HAS_TUI:

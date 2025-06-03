@@ -28,6 +28,9 @@ from rich.console import Console
 # ── Local Imports ──────────────────────────────────────────────────────────
 from . import discovery
 from .sync import Config, logger
+from .db import SpectraDB
+from .channel_utils import populate_account_channel_access
+from .forwarding import AttachmentForwarder
 
 # ── Global Config ──────────────────────────────────────────────────────────
 TZ = timezone.utc
@@ -582,6 +585,400 @@ class ArchiveForm(npyscreen.Form):
         self.parentApp.switchForm("MAIN")
 
 
+# ── Forwarding Menu Form ───────────────────────────────────────────────────
+class ForwardingMenuForm(npyscreen.Form):
+    """Form for SPECTRA Forwarding Utilities"""
+
+    def create(self):
+        self.name = "SPECTRA Forwarding Utilities"
+        # self.manager = self.parentApp.manager # Assuming access to a manager if needed later
+
+        # Title
+        self.add(npyscreen.FixedText, value="SPECTRA Forwarding Utilities", editable=False)
+        self.add(npyscreen.FixedText, value="-" * 40, editable=False) # Separator
+
+        # Action Buttons
+        self.add(npyscreen.ButtonPress, name="Configure Default Forwarding Destination", when_pressed_function=self.configure_default_destination)
+        self.add(npyscreen.ButtonPress, name="View Default Forwarding Destination", when_pressed_function=self.view_default_destination)
+        self.add(npyscreen.ButtonPress, name="Update Channel Access Database", when_pressed_function=self.update_channel_access_db)
+        self.add(npyscreen.ButtonPress, name="Selective Attachment Forwarding", when_pressed_function=self.selective_forwarding_form)
+        self.add(npyscreen.ButtonPress, name="Total Forward Mode", when_pressed_function=self.total_forwarding_form)
+
+        self.add(npyscreen.FixedText, value="", editable=False) # Spacer
+
+        # Status Messages
+        self.status_widget = self.add(StatusMessages, name="Status", max_height=5, editable=False)
+        self.status_widget.add_message("Forwarding utilities ready.")
+
+        self.add(npyscreen.FixedText, value="", editable=False) # Spacer
+
+        # Navigation
+        self.add(npyscreen.ButtonPress, name="Back to Main Menu", when_pressed_function=self.back_to_main_menu)
+
+    def back_to_main_menu(self):
+        """Returns to the main application menu."""
+        self.parentApp.switchForm("MAIN")
+
+    def configure_default_destination(self):
+        """Switches to the form to set the default forwarding destination."""
+        self.parentApp.switchForm("SET_FORWARD_DEST")
+
+    def view_default_destination(self):
+        """Views the currently set default forwarding destination."""
+        try:
+            config = self.parentApp.manager.config
+            destination_id = config.default_forwarding_destination_id
+
+            if destination_id:
+                message = f"Default Forwarding Destination ID: {destination_id}"
+                self.status_widget.add_message(f"Current default forwarding destination: {destination_id}", "INFO")
+            else:
+                message = "Default Forwarding Destination ID is not set."
+                self.status_widget.add_message("Default forwarding destination is not set.", "INFO")
+            
+            npyscreen.notify_confirm(message, title="Default Destination")
+        except AttributeError as e:
+            # This might happen if self.parentApp.manager.config is None or default_forwarding_destination_id is missing
+            error_msg = f"Could not retrieve config or destination ID: {e}"
+            npyscreen.notify_confirm(error_msg, title="Error")
+            self.status_widget.add_message(error_msg, "ERROR")
+        except Exception as e:
+            error_msg = f"An unexpected error occurred: {e}"
+            npyscreen.notify_confirm(error_msg, title="Error")
+            self.status_widget.add_message(error_msg, "ERROR")
+
+    def _update_finished_callback(self, db_instance, result=None):
+        """Callback for when populate_account_channel_access finishes."""
+        # result might contain information about success/failure or data processed
+        # For now, we assume success if no exception was propagated by AsyncRunner
+        self.status_widget.add_message("Channel access database update process finished.", "INFO")
+        if db_instance and db_instance.conn:
+            try:
+                db_instance.conn.close()
+                self.status_widget.add_message("Database connection closed.", "INFO")
+            except Exception as e:
+                self.status_widget.add_message(f"Error closing database: {e}", "ERROR")
+
+    def update_channel_access_db(self):
+        """Updates the channel access database by running populate_account_channel_access."""
+        self.status_widget.add_message("Preparing to update channel access database...", "INFO")
+        db_instance = None # To hold the SpectraDB instance for closing in callback
+        try:
+            config = self.parentApp.manager.config
+            db_path = Path(config.db_path) # Ensure db_path is a Path object
+
+            self.status_widget.add_message(f"Initializing database at {db_path}...", "INFO")
+            db_instance = SpectraDB(db_path)
+            # The SpectraDB class likely establishes the connection on __init__ or needs an explicit open.
+            # If it's a context manager primarily, direct instantiation might not open it.
+            # However, populate_account_channel_access expects an active db instance.
+            # For now, assume SpectraDB constructor gets it ready or populate_account_channel_access handles it.
+
+            self.status_widget.add_message("Starting channel access database update... This may take a while.", "INFO")
+            
+            # Pass the db_instance to the callback so it can close it
+            callback_with_db = lambda result: self._update_finished_callback(db_instance, result)
+            
+            AsyncRunner.run_in_thread(
+                populate_account_channel_access(db_instance, config),
+                callback=callback_with_db
+            )
+        except Exception as e:
+            self.status_widget.add_message(f"Failed to start database update: {e}", "ERROR")
+            if db_instance and db_instance.conn: # Attempt to close if opened before error
+                 try:
+                     db_instance.conn.close()
+                 except Exception as db_e:
+                     self.status_widget.add_message(f"Error closing database during error handling: {db_e}", "ERROR")
+
+    def selective_forwarding_form(self):
+        """Switches to the Selective Attachment Forwarding form."""
+        self.parentApp.switchForm("SELECTIVE_FORWARD")
+
+    def total_forwarding_form(self):
+        """Switches to the Total Forward Mode form."""
+        self.parentApp.switchForm("TOTAL_FORWARD")
+
+
+# ── Set Forward Destination Form ───────────────────────────────────────────
+class SetForwardDestForm(npyscreen.ActionFormMinimal):
+    """Form for setting the default forwarding destination ID."""
+    def create(self):
+        self.name = "Set Default Forwarding Destination"
+        self.destination_id_widget = self.add(npyscreen.TitleText, name="Destination ID:")
+
+    def on_ok(self):
+        destination_id = self.destination_id_widget.value
+        forwarding_form = self.parentApp.getForm("FORWARDING")
+
+        if not destination_id:
+            if forwarding_form:
+                forwarding_form.status_widget.add_message("Destination ID cannot be empty.", "ERROR")
+            self.parentApp.switchForm("FORWARDING")
+            return
+
+        try:
+            config = self.parentApp.manager.config
+            config.default_forwarding_destination_id = destination_id # Use the property setter
+            config.save()
+            if forwarding_form:
+                forwarding_form.status_widget.add_message(f"Default forwarding destination set to: {destination_id}", "INFO")
+        except Exception as e:
+            if forwarding_form:
+                forwarding_form.status_widget.add_message(f"Error saving destination: {e}", "ERROR")
+        
+        self.parentApp.switchForm("FORWARDING")
+
+    def on_cancel(self):
+        forwarding_form = self.parentApp.getForm("FORWARDING")
+        if forwarding_form:
+            forwarding_form.status_widget.add_message("Configuration of default destination cancelled.", "INFO")
+        self.parentApp.switchForm("FORWARDING")
+
+
+# ── Total Forwarding Form ──────────────────────────────────────────────────
+class TotalForwardForm(npyscreen.Form):
+    """Form for total forwarding of all accessible channel messages."""
+    def create(self):
+        self.name = "Total Forward Mode"
+        self.current_forwarder = None
+        self.db_instance = None # To store the SpectraDB instance
+
+        self.add(npyscreen.FixedText, value="Total Forward Mode", editable=False)
+        self.add(npyscreen.FixedText, value="-" * 40, editable=False)
+
+        self.destination_id_widget = self.add(npyscreen.TitleText, name="Dest. ID/Username:")
+        self.account_id_widget = self.add(npyscreen.TitleText, name="Orchestration Account (Optional):",
+                                          footer="Leave blank for default/any.")
+        
+        self.add(npyscreen.FixedText, value="", editable=False) # Spacer
+        self.to_all_saved_widget = self.add(npyscreen.Checkbox, name="Forward to all Saved Messages accounts", value=False)
+        self.prepend_info_widget = self.add(npyscreen.Checkbox, name="Prepend Origin Info to messages", value=True)
+        self.add(npyscreen.FixedText, value="", editable=False) # Spacer
+
+        self.add(npyscreen.ButtonPress, name="Start Total Forwarding", when_pressed_function=self.start_total_forwarding)
+        
+        self.status_widget = self.add(StatusMessages, name="Forwarding Status", max_height=6, rely=-10)
+        
+        self.add(npyscreen.ButtonPress, name="Back to Forwarding Menu", when_pressed_function=self.back_to_forwarding_menu)
+
+    def on_enter(self):
+        """Called when the form is activated."""
+        try:
+            config = self.parentApp.manager.config
+            default_dest = config.default_forwarding_destination_id
+            if default_dest:
+                self.destination_id_widget.value = default_dest
+                self.destination_id_widget.display()
+        except Exception as e:
+            self.status_widget.add_message(f"Error loading default destination: {e}", "ERROR")
+        self.status_widget.add_message("Total forwarding form ready. Ensure DB is updated.", "INFO")
+
+    def _total_forwarding_finished_callback(self, forwarder_instance, db_instance, result=None):
+        """Callback for when the total forwarding process completes."""
+        self.status_widget.add_message("Total forwarding process finished.", "INFO")
+        if forwarder_instance:
+            self.status_widget.add_message("Closing forwarding client session...", "INFO")
+            try:
+                AsyncRunner.run_async(forwarder_instance.close())
+                self.status_widget.add_message("Forwarding client session closed.", "INFO")
+            except Exception as e:
+                self.status_widget.add_message(f"Error closing forwarder session: {e}", "ERROR")
+        
+        if db_instance and db_instance.conn:
+            self.status_widget.add_message("Closing database connection...", "INFO")
+            try:
+                db_instance.conn.close()
+                self.status_widget.add_message("Database connection closed.", "INFO")
+            except Exception as e:
+                self.status_widget.add_message(f"Error closing database: {e}", "ERROR")
+        
+        self.current_forwarder = None
+        self.db_instance = None
+
+    def start_total_forwarding(self):
+        """Initiates the total forwarding process."""
+        if self.current_forwarder or self.db_instance:
+            self.status_widget.add_message("A forwarding or DB task is already in progress. Please wait.", "WARNING")
+            return
+
+        destination_id = self.destination_id_widget.value
+        account_identifier = self.account_id_widget.value or None
+        to_all_saved = self.to_all_saved_widget.value
+        prepend_info = self.prepend_info_widget.value
+
+        if not destination_id and not to_all_saved:
+            self.status_widget.add_message("Destination ID/Username is required if not forwarding to all Saved Messages.", "ERROR")
+            return
+        
+        if to_all_saved:
+            self.status_widget.add_message("Forwarding to all Saved Messages accounts.", "INFO")
+            destination_id = None # Forwarder should handle this
+
+        try:
+            config = self.parentApp.manager.config
+            db_path = Path(config.db_path)
+
+            self.status_widget.add_message(f"Initializing database at {db_path}...", "INFO")
+            self.db_instance = SpectraDB(db_path)
+            # Assuming SpectraDB connects on init or populate_account_channel_access handles it.
+
+            self.current_forwarder = AttachmentForwarder(
+                config=config,
+                db=self.db_instance, # Pass the initialized SpectraDB instance
+                forward_to_all_saved_messages=to_all_saved,
+                prepend_origin_info=prepend_info
+            )
+            
+            display_dest = "all Saved Messages" if to_all_saved else destination_id
+            self.status_widget.add_message(f"Starting total forwarding to {display_dest} from all accessible channels...", "INFO")
+
+            AsyncRunner.run_in_thread(
+                self.current_forwarder.forward_all_accessible_channels(
+                    destination_entity=destination_id,
+                    orchestration_account_identifier=account_identifier
+                ),
+                callback=lambda res: self._total_forwarding_finished_callback(self.current_forwarder, self.db_instance, res)
+            )
+        except Exception as e:
+            self.status_widget.add_message(f"Failed to start total forwarding: {e}", "ERROR")
+            if self.current_forwarder:
+                try: AsyncRunner.run_async(self.current_forwarder.close())
+                except: pass # best effort
+            if self.db_instance and self.db_instance.conn:
+                try: self.db_instance.conn.close()
+                except: pass # best effort
+            self.current_forwarder = None
+            self.db_instance = None
+
+    def back_to_forwarding_menu(self):
+        """Returns to the Forwarding Menu."""
+        if self.current_forwarder or self.db_instance:
+            npyscreen.notify_confirm(
+                "A forwarding or DB task is in progress. Are you sure you want to go back?\n"
+                "The task will continue, but you won't see live updates here and resources might not be cleaned up properly if the main app exits.",
+                title="Task in Progress"
+            )
+        self.parentApp.switchForm("FORWARDING")
+
+
+# ── Selective Forwarding Form ──────────────────────────────────────────────
+class SelectiveForwardForm(npyscreen.Form):
+    """Form for selective message forwarding with attachments."""
+    def create(self):
+        self.name = "Selective Message Forwarding"
+        self.current_forwarder = None # To store the active forwarder instance
+
+        self.add(npyscreen.FixedText, value="Selective Message Forwarding", editable=False)
+        self.add(npyscreen.FixedText, value="-" * 40, editable=False)
+
+        self.origin_id_widget = self.add(npyscreen.TitleText, name="Origin ID/Username:")
+        self.destination_id_widget = self.add(npyscreen.TitleText, name="Dest. ID/Username:")
+        self.account_id_widget = self.add(npyscreen.TitleText, name="Account (Optional):", 
+                                          footer="Leave blank for default/any.")
+        
+        self.add(npyscreen.FixedText, value="", editable=False) # Spacer
+        self.to_all_saved_widget = self.add(npyscreen.Checkbox, name="Forward to all Saved Messages accounts", value=False)
+        self.prepend_info_widget = self.add(npyscreen.Checkbox, name="Prepend Origin Info to messages", value=True)
+        self.add(npyscreen.FixedText, value="", editable=False) # Spacer
+
+        self.add(npyscreen.ButtonPress, name="Start Selective Forwarding", when_pressed_function=self.start_forwarding)
+        
+        # Adjusted rely based on typical form layouts to appear above the final "Back" button.
+        # This might need further tweaking depending on actual widget heights.
+        self.status_widget = self.add(StatusMessages, name="Forwarding Status", max_height=6, rely=-10) 
+        
+        self.add(npyscreen.ButtonPress, name="Back to Forwarding Menu", when_pressed_function=self.back_to_forwarding_menu)
+
+    def on_enter(self):
+        """Called when the form is activated."""
+        try:
+            config = self.parentApp.manager.config
+            default_dest = config.default_forwarding_destination_id
+            if default_dest:
+                self.destination_id_widget.value = default_dest
+                self.destination_id_widget.display()
+        except Exception as e:
+            self.status_widget.add_message(f"Error loading default destination: {e}", "ERROR")
+        self.status_widget.add_message("Selective forwarding form ready.", "INFO")
+
+    def _forwarding_finished_callback(self, forwarder_instance, result=None):
+        """Callback for when the forwarding process completes."""
+        self.status_widget.add_message("Selective forwarding process finished.", "INFO")
+        if forwarder_instance:
+            self.status_widget.add_message("Closing forwarding client session...", "INFO")
+            try:
+                AsyncRunner.run_async(forwarder_instance.close())
+                self.status_widget.add_message("Forwarding client session closed.", "INFO")
+            except Exception as e:
+                self.status_widget.add_message(f"Error closing forwarder session: {e}", "ERROR")
+        self.current_forwarder = None # Clear the stored forwarder
+
+    def start_forwarding(self):
+        """Initiates the selective forwarding process."""
+        if self.current_forwarder:
+            self.status_widget.add_message("A forwarding task is already in progress. Please wait.", "WARNING")
+            return
+
+        origin_id = self.origin_id_widget.value
+        destination_id = self.destination_id_widget.value
+        account_identifier = self.account_id_widget.value or None # Ensure None if empty
+        to_all_saved = self.to_all_saved_widget.value
+        prepend_info = self.prepend_info_widget.value
+
+        if not origin_id:
+            self.status_widget.add_message("Origin ID/Username is required.", "ERROR")
+            return
+        if not destination_id and not to_all_saved:
+            self.status_widget.add_message("Destination ID/Username is required if not forwarding to all Saved Messages.", "ERROR")
+            return
+        if to_all_saved: # If to_all_saved is true, destination_id might be ignored by forwarder logic
+            self.status_widget.add_message("Forwarding to all Saved Messages accounts.", "INFO")
+            destination_id = None # Explicitly set to None or a special value if your forwarder expects one
+
+        try:
+            config = self.parentApp.manager.config
+            
+            # Initialize AttachmentForwarder, db is None as per plan
+            self.current_forwarder = AttachmentForwarder(
+                config=config, 
+                db=None,  # Passing db=None
+                forward_to_all_saved_messages=to_all_saved,
+                prepend_origin_info=prepend_info
+            )
+
+            display_dest = "all Saved Messages" if to_all_saved else destination_id
+            self.status_widget.add_message(f"Starting selective forwarding: {origin_id} -> {display_dest}...", "INFO")
+
+            AsyncRunner.run_in_thread(
+                self.current_forwarder.forward_messages(
+                    origin_entity=origin_id, 
+                    destination_entity=destination_id, 
+                    account_identifier=account_identifier
+                ),
+                callback=lambda res: self._forwarding_finished_callback(self.current_forwarder, res)
+            )
+        except Exception as e:
+            self.status_widget.add_message(f"Failed to start forwarding: {e}", "ERROR")
+            if self.current_forwarder: # Attempt cleanup if forwarder was initialized
+                try:
+                    AsyncRunner.run_async(self.current_forwarder.close())
+                except Exception as ce:
+                    self.status_widget.add_message(f"Error during forwarder cleanup: {ce}", "ERROR")
+                self.current_forwarder = None
+
+
+    def back_to_forwarding_menu(self):
+        """Returns to the Forwarding Menu."""
+        if self.current_forwarder:
+            npyscreen.notify_confirm(
+                "A forwarding task is in progress. Are you sure you want to go back?\n"
+                "The task will continue in the background, but you won't see live updates here.",
+                title="Task in Progress"
+            )
+        self.parentApp.switchForm("FORWARDING")
+
+
 # ── Main Menu Form ─────────────────────────────────────────────────────────
 class MainMenuForm(npyscreen.Form):
     """Main menu form for the application"""
@@ -598,10 +995,11 @@ class MainMenuForm(npyscreen.Form):
         self.add(npyscreen.ButtonPress, name="1. Archive Channel/Group", when_pressed_function=self.archive_form)
         self.add(npyscreen.ButtonPress, name="2. Discover Groups", when_pressed_function=self.discovery_form)
         self.add(npyscreen.ButtonPress, name="3. Network Analysis", when_pressed_function=self.graph_form)
-        self.add(npyscreen.ButtonPress, name="4. Account Management", when_pressed_function=self.account_form)
-        self.add(npyscreen.ButtonPress, name="5. Settings", when_pressed_function=self.settings_form)
-        self.add(npyscreen.ButtonPress, name="6. Help & About", when_pressed_function=self.help_form)
-        self.add(npyscreen.ButtonPress, name="7. Exit", when_pressed_function=self.exit_app)
+        self.add(npyscreen.ButtonPress, name="4. Forwarding Utilities", when_pressed_function=self.forwarding_form) # New menu item
+        self.add(npyscreen.ButtonPress, name="5. Account Management", when_pressed_function=self.account_form) # Adjusted number
+        self.add(npyscreen.ButtonPress, name="6. Settings", when_pressed_function=self.settings_form) # Adjusted number
+        self.add(npyscreen.ButtonPress, name="7. Help & About", when_pressed_function=self.help_form) # Adjusted number
+        self.add(npyscreen.ButtonPress, name="8. Exit", when_pressed_function=self.exit_app) # Adjusted number
         
         # Status
         self.add(npyscreen.FixedText, value="")
@@ -620,6 +1018,10 @@ class MainMenuForm(npyscreen.Form):
     def discovery_form(self):
         """Switch to discovery form"""
         self.parentApp.switchForm("DISCOVERY")
+
+    def forwarding_form(self):
+        """Switch to forwarding utilities form"""
+        self.parentApp.switchForm("FORWARDING")
     
     def graph_form(self):
         """Switch to graph explorer form"""
@@ -688,6 +1090,10 @@ class SpectraApp(npyscreen.NPSAppManaged):
         # Register forms
         self.addForm("MAIN", MainMenuForm, name="SPECTRA Main Menu")
         self.addForm("ARCHIVE", ArchiveForm, name="SPECTRA Archiver")
+        self.addForm("FORWARDING", ForwardingMenuForm, name="SPECTRA Forwarding")
+        self.addForm("SET_FORWARD_DEST", SetForwardDestForm, name="Set Default Forwarding Destination")
+        self.addForm("SELECTIVE_FORWARD", SelectiveForwardForm, name="Selective Message Forwarding")
+        self.addForm("TOTAL_FORWARD", TotalForwardForm, name="Total Forward Mode") # New form
         self.addForm("DISCOVERY", DiscoveryForm, name="SPECTRA Group Discovery")
         self.addForm("GRAPH", GraphExplorerForm, name="SPECTRA Network Explorer")
     

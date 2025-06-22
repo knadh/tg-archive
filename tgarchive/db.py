@@ -87,6 +87,15 @@ CREATE TABLE IF NOT EXISTS checkpoints (
     checkpoint_time  TEXT,
     context          TEXT
 );
+
+CREATE TABLE IF NOT EXISTS account_channel_access (
+    account_phone_number TEXT NOT NULL,
+    channel_id           BIGINT NOT NULL,
+    channel_name         TEXT,
+    access_hash          BIGINT,
+    last_seen            TEXT,
+    PRIMARY KEY (account_phone_number, channel_id)
+);
 """
 
 # ── Helper SQL functions ────────────────────────────────────────────────
@@ -271,6 +280,53 @@ class SpectraDB(AbstractContextManager):
                 msg.checksum,
             ),
         )
+
+    # Account Channel Access -----------------------------------------------
+    def upsert_account_channel_access(
+        self,
+        account_phone_number: str,
+        channel_id: int,
+        channel_name: Optional[str],
+        access_hash: Optional[int],
+        last_seen: str,
+    ) -> None:
+        self._exec_retry(
+            """
+            INSERT INTO account_channel_access(account_phone_number, channel_id, channel_name, access_hash, last_seen)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(account_phone_number, channel_id) DO UPDATE SET
+                channel_name=excluded.channel_name,
+                access_hash=excluded.access_hash,
+                last_seen=excluded.last_seen;
+            """,
+            (account_phone_number, channel_id, channel_name, access_hash, last_seen),
+        )
+
+    def get_all_unique_channels(self) -> List[Tuple[int, str]]:
+        """
+        Retrieves a list of unique channel IDs and an associated account phone number
+        that can access each channel. Prioritizes channels with access_hash.
+        """
+        # This query selects distinct channel_id and one corresponding account_phone_number.
+        # It prioritizes entries with non-null access_hash if multiple accounts can see the same channel.
+        # The subquery with row_number is a common way to achieve "pick one row per group"
+        # based on some ordering.
+        sql = """
+            SELECT channel_id, account_phone_number
+            FROM (
+                SELECT
+                    channel_id,
+                    account_phone_number,
+                    access_hash,
+                    ROW_NUMBER() OVER (PARTITION BY channel_id ORDER BY CASE WHEN access_hash IS NOT NULL THEN 0 ELSE 1 END, last_seen DESC) as rn
+                FROM account_channel_access
+            )
+            WHERE rn = 1;
+        """
+        self.cur.execute(sql)
+        # The query should return (BIGINT, TEXT), which matches (int, str) in Python
+        return [(int(row[0]), str(row[1])) for row in self.cur.fetchall()]
+
 
     # Checkpoints ----------------------------------------------------------
     def save_checkpoint(self, last_id: int, *, context: str = "sync") -> None:

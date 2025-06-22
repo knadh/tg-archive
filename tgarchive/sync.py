@@ -111,6 +111,7 @@ DEFAULT_CFG: Dict[str, Any] = {
     "collect_usernames": True,
     "sidecar_metadata": True,
     "archive_topics": True,  # New option to control topic archiving
+    "default_forwarding_destination_id": None,
 }
 
 # ── Config loader ─────────────────────────────────────────────────────────
@@ -118,25 +119,33 @@ DEFAULT_CFG: Dict[str, Any] = {
 class Config:
     path: Path = Path("spectra_config.json")
     data: Dict[str, Any] = field(default_factory=lambda: DEFAULT_CFG.copy())
-    
+
     def __post_init__(self):
         # First try to load generated configs from TELESMASHER
         auto_config_loaded = self._try_load_generated_configs()
-        
-        # If no auto-configs found, try legacy config
+
+        loaded_from_file = False
         if not auto_config_loaded and self.path.exists():
             try:
-                self.data.update(json.loads(self.path.read_text()))
+                file_data = json.loads(self.path.read_text())
+                self.data.update(file_data)
                 logger.info(f"Loaded legacy config from {self.path}")
+                loaded_from_file = True
             except json.JSONDecodeError as exc:
                 logger.warning("Bad JSON in config – using defaults (%s)", exc)
-        elif not auto_config_loaded:
+        
+        if not loaded_from_file and not auto_config_loaded:
+            # If no config file and no auto-config, save default
             self.save()
             console.print(
                 "[yellow]Config not found; default created at"
                 f" {self.path}.  Edit credentials then rerun.[/yellow]"
             )
             sys.exit(1)
+        
+        # Ensure default_forwarding_destination_id is present
+        if "default_forwarding_destination_id" not in self.data:
+            self.data["default_forwarding_destination_id"] = DEFAULT_CFG["default_forwarding_destination_id"]
 
         # back-compat
         if not self.data.get("accounts"):
@@ -218,9 +227,20 @@ class Config:
     def __getitem__(self, item):
         return self.data[item]
 
+    def __setitem__(self, key, value):
+        self.data[key] = value
+
     @property
     def accounts(self):
         return self.data["accounts"]
+
+    @property
+    def default_forwarding_destination_id(self):
+        return self.data.get("default_forwarding_destination_id")
+
+    @default_forwarding_destination_id.setter
+    def default_forwarding_destination_id(self, value: Optional[str]):
+        self.data["default_forwarding_destination_id"] = value
     
     @property
     def active_accounts(self) -> List[Dict[str, Any]]:

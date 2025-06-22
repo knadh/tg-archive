@@ -24,6 +24,15 @@ from .discovery import (
     ParallelTaskScheduler,
     enhance_config_with_gen_accounts
 )
+from .db import SpectraDB
+from .channel_utils import populate_account_channel_access
+from .forwarding import AttachmentForwarder # Added for handle_forward
+
+try:
+    from .cloud_processor import CloudProcessor
+except ImportError:
+    CloudProcessor = None # Or handle more gracefully if cloud mode is essential
+    logger.debug("CloudProcessor could not be imported. Cloud mode might be unavailable.")
 
 try:
     from .cloud_processor import CloudProcessor
@@ -133,6 +142,30 @@ def setup_parser() -> argparse.ArgumentParser:
     cloud_parser.add_argument("--output-dir", type=str, required=True, help="Directory to store downloaded files and logs for the cloud mode session.")
     cloud_parser.add_argument("--max-depth", type=int, default=2, help="Maximum depth to follow channel links during discovery (default: 2).")
     cloud_parser.add_argument("--min-files-gateway", type=int, default=100, help="Minimum number of files a channel must have to be considered a 'gateway' for focused downloading (default: 100).")
+
+
+    # Config command
+    config_parser = subparsers.add_parser("config", help="Manage SPECTRA configuration")
+    config_subparsers = config_parser.add_subparsers(dest="config_command", help="Configuration command")
+
+    config_set_fwd_parser = config_subparsers.add_parser("set-forward-dest", help="Set the default forwarding destination ID")
+    config_set_fwd_parser.add_argument("destination_id", type=str, help="The destination ID (e.g., channel ID, user ID)")
+
+    config_view_fwd_parser = config_subparsers.add_parser("view-forward-dest", help="View the default forwarding destination ID")
+
+    # Channels command
+    channels_parser = subparsers.add_parser("channels", help="Manage channel-related information")
+    channels_subparsers = channels_parser.add_subparsers(dest="channels_command", help="Channel command")
+    channels_update_access_parser = channels_subparsers.add_parser("update-access", help="Update the list of channels accessible by each account")
+
+    # Forward command
+    forward_parser = subparsers.add_parser("forward", help="Forward messages/attachments between Telegram entities")
+    forward_parser.add_argument("--origin", help="Origin channel/chat ID or username (optional if --total-mode is used)")
+    forward_parser.add_argument("--destination", help="Destination channel/chat ID or username (uses default from config if not set)")
+    forward_parser.add_argument("--account", help="Specific account (phone number or session name) to use for forwarding/orchestration")
+    forward_parser.add_argument("--total-mode", action="store_true", help="Forward from all accessible channels found in the database to the destination")
+    forward_parser.add_argument("--forward-to-all-saved", action="store_true", help="Forward to 'Saved Messages' of all configured accounts in addition to the main destination.")
+    forward_parser.add_argument("--prepend-origin-info", action="store_true", help="Prepend origin channel information to the forwarded message text (used if not forwarding to topics).")
     
     return parser
 
@@ -562,6 +595,131 @@ async def handle_cloud(args: argparse.Namespace) -> int:
         logger.error(f"An critical error occurred during cloud mode processing: {e}", exc_info=True)
         return 1  # Failure
 
+
+# ── Config command handlers ────────────────────────────────────────────────
+async def handle_set_forward_dest(args: argparse.Namespace, cfg: Config) -> int:
+    """Handle setting the default forwarding destination."""
+    try:
+        destination_id = args.destination_id
+        cfg.default_forwarding_destination_id = destination_id
+        cfg.save()
+        logger.info(f"Default forwarding destination ID set to: {destination_id}")
+        return 0
+    except Exception as e:
+        logger.error(f"Failed to set forwarding destination ID: {e}")
+        return 1
+
+async def handle_view_forward_dest(args: argparse.Namespace, cfg: Config) -> int:
+    """Handle viewing the default forwarding destination."""
+    try:
+        destination_id = cfg.default_forwarding_destination_id
+        if destination_id:
+            print(f"Default forwarding destination ID: {destination_id}")
+        else:
+            print("Default forwarding destination ID is not set.")
+        return 0
+    except Exception as e:
+        logger.error(f"Failed to view forwarding destination ID: {e}")
+        return 1
+
+async def handle_config(args: argparse.Namespace, cfg: Config) -> int:
+    """Handle config commands"""
+    if args.config_command == "set-forward-dest":
+        return await handle_set_forward_dest(args, cfg)
+    elif args.config_command == "view-forward-dest":
+        return await handle_view_forward_dest(args, cfg)
+    else:
+        logger.error(f"Unknown config command: {args.config_command}")
+        # It might be good to print help for the config subparser here
+        return 1
+
+# ── Forwarding command handler ───────────────────────────────────────────────
+async def handle_forward(args: argparse.Namespace) -> int:
+    """Handles forwarding of messages."""
+    try:
+        cfg = Config(Path(args.config))
+        if args.import_accounts:
+            cfg = enhance_config_with_gen_accounts(cfg)
+
+        db_path = Path(args.db)
+        # For total_mode, DB is essential. For single forward, it's optional for the forwarder itself.
+        if args.total_mode and not db_path.exists():
+            logger.error(f"Database not found at {db_path}. --total-mode requires the database.")
+            return 1
+        db = SpectraDB(db_path) if db_path.exists() else None
+
+        destination = args.destination
+        if not destination:
+            destination = cfg.default_forwarding_destination_id
+            if not destination:
+                logger.error("Destination ID is required, either via --destination or by setting default_forwarding_destination_id in the config.")
+                return 1
+            logger.info(f"Using default forwarding destination from config: {destination}")
+
+        forwarder = AttachmentForwarder(
+            config=cfg, 
+            db=db, 
+            forward_to_all_saved_messages=args.forward_to_all_saved,
+            prepend_origin_info=args.prepend_origin_info # Pass the new CLI arg
+            # destination_topic_id is not yet a CLI arg, so it defaults to None
+        )
+        try:
+            if args.total_mode:
+                if not db: # Should have been caught by db_path.exists() check earlier, but as a safeguard
+                    logger.error("Database connection is required for --total-mode but not established.")
+                    return 1
+                logger.info(f"Starting 'Total Forward Mode' to destination '{destination}'. Orchestration account: '{args.account if args.account else 'default'}'.")
+                await forwarder.forward_all_accessible_channels(
+                    destination_id=destination,
+                    orchestration_account_identifier=args.account # Pass CLI account for potential orchestration use
+                )
+                logger.info("'Total Forward Mode' process completed.")
+            else:
+                if not args.origin:
+                    logger.error("Argument --origin is required when not using --total-mode.")
+                    # Print help for forward subparser (conceptual)
+                    # main_parser = setup_parser()
+                    # main_parser.parse_args(['forward', '--help']) # This doesn't work directly like this
+                    return 1
+                logger.info(f"Starting single forwarding from '{args.origin}' to '{destination}' using account '{args.account if args.account else 'default'}'.")
+                await forwarder.forward_messages(
+                    origin_id=args.origin,
+                    destination_id=destination,
+                    account_identifier=args.account
+                )
+                logger.info("Single forwarding process completed.")
+            return 0
+        finally:
+            await forwarder.close() # Ensure client is closed
+
+    except ValueError as ve: # Catch config/value errors specifically
+        logger.error(f"Error: {ve}")
+        return 1
+    except Exception as e:
+        logger.error(f"Failed to forward messages: {e}", exc_info=True)
+        return 1
+
+# ── Channel command handlers ─────────────────────────────────────────────────
+async def handle_update_channel_access(args: argparse.Namespace) -> int:
+    """Handle updating the account_channel_access table."""
+    try:
+        cfg = Config(Path(args.config))
+        db = SpectraDB(Path(args.db))
+        
+        # Import accounts from gen_config if requested (as it might not be done by default if only calling this command)
+        if args.import_accounts:
+            cfg = enhance_config_with_gen_accounts(cfg)
+            # cfg.save() # Optionally save if changes from import should persist
+
+        logger.info("Starting population of account_channel_access table...")
+        await populate_account_channel_access(db, cfg)
+        logger.info("Finished updating account_channel_access table.")
+        return 0
+    except Exception as e:
+        logger.error(f"Failed to update channel access information: {e}", exc_info=True)
+        return 1
+
+
 # ── Parallel operation handlers ───────────────────────────────────────────────
 async def handle_parallel_discover(args: argparse.Namespace) -> int:
     """Handle parallel discover command"""
@@ -876,6 +1034,21 @@ async def async_main(args: argparse.Namespace) -> int:
         return await handle_parallel(args)
     elif args.command == "cloud":
         return await handle_cloud(args)
+
+    elif args.command == "config":
+        cfg = Config(Path(args.config)) # Ensure cfg is loaded for config commands
+        return await handle_config(args, cfg)
+    elif args.command == "channels":
+        if args.channels_command == "update-access":
+            return await handle_update_channel_access(args)
+        else:
+            logger.error(f"Unknown channels command: {args.channels_command}")
+            # Print help for channels subparser
+            # parser.parse_args(['channels', '--help']) # This might be tricky to invoke correctly
+            return 1
+    elif args.command == "forward":
+        return await handle_forward(args)
+
     else:
         # No command or unrecognized command
         if HAS_TUI:

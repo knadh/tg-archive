@@ -193,6 +193,83 @@ SPECTRA will not install `screen` or `tmux` for you. Please install them using y
 
 ---
 
+## Message Forwarding Features
+
+SPECTRA includes powerful features for forwarding messages with attachments from origin channels/chats to a specified destination, or even to the "Saved Messages" of multiple configured accounts. This can be useful for consolidating information, creating backups, or distributing content.
+
+### Forwarding Modes
+
+1.  **Selective Forwarding:** Forward messages from a specific origin to a specific destination.
+    ```bash
+    python -m tgarchive forward --origin <origin_id_or_username> --destination <destination_id_or_username>
+    ```
+
+2.  **Total Forward Mode:** Forward messages from all channels accessible by your configured accounts (as listed in the `account_channel_access` table) to a specific destination. This mode requires the channel access table to be populated first.
+    ```bash
+    python -m tgarchive forward --total-mode [--destination <destination_id_or_username>]
+    ```
+    To populate the `account_channel_access` table, run:
+    ```bash
+    python -m tgarchive channels --update-access
+    ```
+
+### Forwarding Command Details (`tgarchive forward`)
+
+The main command for forwarding is `python -m tgarchive forward` with the following options:
+
+*   `--origin <id_or_username>`: Specifies the source channel or chat from which to forward messages. This is required unless `--total-mode` is used.
+*   `--destination <id_or_username>`: Specifies the target channel or chat to which messages will be forwarded. If not provided, SPECTRA will use the `default_forwarding_destination_id` set in your `spectra_config.json` file.
+*   `--account <phone_or_session_name>`: Specifies which configured Telegram account to use for the forwarding operation. If not provided, the first account in your configuration is typically used. For "Total Forward Mode", this account is used for orchestration, while individual channel forwarding uses an account known to have access to that specific channel (from the `account_channel_access` table).
+*   `--total-mode`: Enables "Total Forward Mode". When this flag is used, the `--origin` argument is ignored, and SPECTRA will attempt to forward messages from all channels recorded in the `account_channel_access` database table.
+*   `--forward-to-all-saved`: When enabled, messages successfully forwarded to the main destination will *also* be forwarded to the "Saved Messages" of *every account* configured in `spectra_config.json`. This can be useful for creating broad personal backups but will significantly increase API calls and data redundancy. Use with caution.
+*   `--prepend-origin-info`: If enabled, and if not using topic-based forwarding (see below), information about the original channel (e.g., "[Forwarded from OriginalChannelName (ID: 12345)]") will be prepended to the text of the forwarded message. This helps in identifying the source of messages when they are consolidated into a general channel.
+
+### Related Configuration and Utility Commands
+
+*   **Setting Default Destination:**
+    ```bash
+    python -m tgarchive config --set-forward-dest <destination_id_or_username>
+    ```
+    This command updates the `default_forwarding_destination_id` in your `spectra_config.json`.
+
+*   **Viewing Default Destination:**
+    ```bash
+    python -m tgarchive config --view-forward-dest
+    ```
+
+*   **Updating Channel Access Data (for Total Mode):**
+    ```bash
+    python -m tgarchive channels --update-access
+    ```
+    This command populates the `account_channel_access` table in the database by iterating through all your configured accounts and listing the channels each can access. This table is crucial for the `--total-mode` forwarding feature.
+
+### Configuration for Forwarding
+
+*   **`default_forwarding_destination_id`**: Located in `spectra_config.json`, this key (added manually or via the `config --set-forward-dest` command) allows you to set a global default destination for forwarding operations, so you don't have to specify `--destination` every time.
+*   **Supergroup Topic Sorting (Conceptual):**
+    Telegram's "Topics" feature in supergroups allows for organized discussions. SPECTRA's forwarding can conceptually support sending messages into specific topics. This is typically done by forwarding a message as a *reply* to the message that represents the topic's creation or its main "general" topic message.
+    If you manually identify the message ID for a specific topic in the destination supergroup, this ID could be used (currently via code modification or future enhancement as `destination_topic_id` in the `AttachmentForwarder`) with the `reply_to` parameter in Telegram's API when forwarding.
+    Currently, SPECTRA does **not** automatically create or manage topics by name due to limitations with user accounts (topic creation/management often requires bot privileges or specific admin rights).
+    The `--prepend-origin-info` flag is the primary method for distinguishing messages from different origins when forwarded to a common, non-topic-based channel.
+
+### "Forward to All Saved Messages" Feature
+
+Enabling `--forward-to-all-saved` provides a way to create a distributed backup or personal archive of forwarded content across all your configured Telegram accounts. Each message successfully forwarded to the main destination will also be sent to the "Saved Messages" chat of each account.
+
+**Implications:**
+*   **Increased API Usage:** This feature will make significantly more API calls (one forward per account for each original message). Be mindful of Telegram's rate limits. The system has built-in handling for `FloodWaitError` (rate limit exceeded) and will pause as instructed by Telegram, but excessive use could still lead to temporary restrictions on accounts.
+*   **Data Redundancy:** You will have multiple copies of the forwarded messages across your accounts.
+*   **Sequential Operation:** Forwarding to each account's "Saved Messages" happens sequentially for each original message to manage client connections and reduce simultaneous API load from this specific feature.
+
+### Database and `account_channel_access` Table
+
+The "Total Forward Mode" (`--total-mode`) relies on the `account_channel_access` table in the SPECTRA database. This table stores a record of which channels are accessible by which of your configured accounts, including their names and access hashes. It is populated by the `tgarchive channels --update-access` command.
+
+For more details on the database schema, please refer to the [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) file.
+
+
+---
+
 ## Parallel Processing Example Script
 
 A ready-to-use example script is provided to demonstrate parallel discovery, join, and archive operations:

@@ -34,6 +34,12 @@ except ImportError:
     CloudProcessor = None # Or handle more gracefully if cloud mode is essential
     logger.debug("CloudProcessor could not be imported. Cloud mode might be unavailable.")
 
+try:
+    from .cloud_processor import CloudProcessor
+except ImportError:
+    CloudProcessor = None # Or handle more gracefully if cloud mode is essential
+    logger.debug("CloudProcessor could not be imported. Cloud mode might be unavailable.")
+
 # ── Try to import TUI ────────────────────────────────────────────────────────
 try:
     from .spectra_tui import main as tui_main
@@ -136,6 +142,7 @@ def setup_parser() -> argparse.ArgumentParser:
     cloud_parser.add_argument("--output-dir", type=str, required=True, help="Directory to store downloaded files and logs for the cloud mode session.")
     cloud_parser.add_argument("--max-depth", type=int, default=2, help="Maximum depth to follow channel links during discovery (default: 2).")
     cloud_parser.add_argument("--min-files-gateway", type=int, default=100, help="Minimum number of files a channel must have to be considered a 'gateway' for focused downloading (default: 100).")
+
 
     # Config command
     config_parser = subparsers.add_parser("config", help="Manage SPECTRA configuration")
@@ -588,6 +595,7 @@ async def handle_cloud(args: argparse.Namespace) -> int:
         logger.error(f"An critical error occurred during cloud mode processing: {e}", exc_info=True)
         return 1  # Failure
 
+
 # ── Config command handlers ────────────────────────────────────────────────
 async def handle_set_forward_dest(args: argparse.Namespace, cfg: Config) -> int:
     """Handle setting the default forwarding destination."""
@@ -710,6 +718,7 @@ async def handle_update_channel_access(args: argparse.Namespace) -> int:
     except Exception as e:
         logger.error(f"Failed to update channel access information: {e}", exc_info=True)
         return 1
+
 
 # ── Parallel operation handlers ───────────────────────────────────────────────
 async def handle_parallel_discover(args: argparse.Namespace) -> int:
@@ -1025,6 +1034,7 @@ async def async_main(args: argparse.Namespace) -> int:
         return await handle_parallel(args)
     elif args.command == "cloud":
         return await handle_cloud(args)
+
     elif args.command == "config":
         cfg = Config(Path(args.config)) # Ensure cfg is loaded for config commands
         return await handle_config(args, cfg)
@@ -1038,6 +1048,7 @@ async def async_main(args: argparse.Namespace) -> int:
             return 1
     elif args.command == "forward":
         return await handle_forward(args)
+
     else:
         # No command or unrecognized command
         if HAS_TUI:

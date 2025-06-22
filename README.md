@@ -267,6 +267,7 @@ The "Total Forward Mode" (`--total-mode`) relies on the `account_channel_access`
 
 For more details on the database schema, please refer to the [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) file.
 
+
 ---
 
 ## Parallel Processing Example Script

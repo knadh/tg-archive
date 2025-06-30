@@ -9,6 +9,7 @@ import magic
 
 from feedgen.feed import FeedGenerator
 from jinja2 import Template
+from telethon.extensions.html import unparse
 
 from .db import User, Message
 
@@ -122,7 +123,8 @@ class Build:
                                     pagination={"current": page,
                                                 "total": total_pages},
                                     make_filename=self.make_filename,
-                                    nl2br=self._nl2br)
+                                    nl2br=self._nl2br,
+                                    formatAsHTML=unparse)
 
         with open(os.path.join(self.config["publish_dir"], fname), "w", encoding="utf8") as f:
             f.write(html)
@@ -177,7 +179,8 @@ class Build:
                                             m=m,
                                             media_mime=media_mime,
                                             page_ids=self.page_ids,
-                                            nl2br=self._nl2br)
+                                            nl2br=self._nl2br,
+                                            formatAsHTML=unparse)
         out = m.content
         if not out and m.media:
             out = m.media.title

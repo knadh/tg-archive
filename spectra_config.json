@@ -61,5 +61,17 @@
     "max_size_mb": 10,
     "backup_count": 5
   },
-  "default_forwarding_destination_id": null
+  "default_forwarding_destination_id": null,
+  "forwarding": {
+    "enable_deduplication": true,
+    "secondary_unique_destination": null
+  },
+  "cloud": {
+    "auto_invite_accounts": true,
+    "invitation_delays": {
+      "min_seconds": 120,
+      "max_seconds": 600,
+      "variance": 0.3
+    }
+  }
 }

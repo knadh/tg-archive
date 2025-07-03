@@ -193,6 +193,128 @@ SPECTRA will not install `screen` or `tmux` for you. Please install them using y
 
 ---
 
+## Enhanced Forwarding & Cloud Operations
+
+SPECTRA now includes advanced capabilities for message deduplication during forwarding and an automated account invitation system for channels discovered in Cloud Mode.
+
+### Deduplication Forwarding
+
+To prevent redundant information and save on API calls, SPECTRA's forwarding mechanism can now detect and skip messages that have already been processed and forwarded.
+
+**Overview:**
+
+*   When enabled, SPECTRA computes a unique hash for each message's content (text and media attributes) before forwarding.
+*   These hashes are stored in the local database (`spectra.sqlite3` in a table named `forwarded_messages`).
+*   If a message's hash is already found in the database or an in-memory cache for the current session, it's considered a duplicate and will not be forwarded to the primary destination.
+*   Unique messages can optionally be routed to a secondary, specified channel, ensuring this channel only receives content not seen before.
+
+**Configuration (`spectra_config.json`):**
+
+Add or modify the `forwarding` section in your `spectra_config.json`:
+
+```json
+{
+  "forwarding": {
+    "enable_deduplication": true,
+    "secondary_unique_destination": "@your_unique_content_channel"
+  }
+  // ... other forwarding settings ...
+}
+```
+
+*   `enable_deduplication` (boolean): Set to `true` (default) to enable duplicate detection, `false` to disable.
+*   `secondary_unique_destination` (string | null): Optional. The username or ID of a channel where unique messages (those not previously forwarded) will be sent. If `null` or not provided, unique messages are only sent to the primary destination.
+
+**CLI Flags for `tgarchive forward`:**
+
+*   `--enable-deduplication` / `--disable-deduplication`: Overrides the `enable_deduplication` setting from `spectra_config.json` for the current command.
+    *   Example: `python -m tgarchive forward --origin @source --destination @main_dest --disable-deduplication`
+*   `--secondary-unique-destination <channel_id_or_username>`: Specifies the secondary destination for unique messages, overriding the config for the current command.
+    *   Example: `python -m tgarchive forward --origin @source --destination @main_dest --secondary-unique-destination @only_uniques_here`
+
+**Usage Example:**
+
+To forward messages from `@news_source` to `@my_archive`, skip duplicates, and send unique messages also to `@special_uniques`:
+
+1.  Ensure your `spectra_config.json` has:
+    ```json
+    "forwarding": {
+      "enable_deduplication": true,
+      "secondary_unique_destination": "@special_uniques"
+    }
+    ```
+2.  Run the command:
+    ```bash
+    python -m tgarchive forward --origin @news_source --destination @my_archive
+    ```
+    Or, using CLI overrides:
+    ```bash
+    python -m tgarchive forward --origin @news_source --destination @my_archive --enable-deduplication --secondary-unique-destination @special_uniques
+    ```
+
+### Cloud Mode: Automated Account Invitations
+
+When operating in Cloud Mode, SPECTRA can now automatically invite other configured accounts to join newly discovered and accessible public channels. This helps distribute channel membership across your available accounts.
+
+**Overview:**
+
+*   After the primary Cloud Mode account successfully accesses/joins a new channel, that channel is added to an invitation queue.
+*   Other accounts configured in `spectra_config.json` (excluding the primary Cloud Mode account) will be gradually invited to join these queued channels.
+*   Invitations are processed with randomized delays to simulate natural user behavior and respect Telegram's rate limits.
+*   The system tracks successful and failed invitations in a state file (`invitation_state.json` in your cloud output directory) to avoid re-processing and to allow resumability.
+
+**Configuration (`spectra_config.json`):**
+
+Add or modify the `cloud` section in your `spectra_config.json`:
+
+```json
+{
+  "cloud": {
+    "auto_invite_accounts": true,
+    "invitation_delays": {
+      "min_seconds": 120,
+      "max_seconds": 600,
+      "variance": 0.3
+    }
+  }
+  // ... other cloud settings ...
+}
+```
+
+*   `auto_invite_accounts` (boolean): Set to `true` (default) to enable this feature, `false` to disable.
+*   `invitation_delays`: An object defining the timing for invitations:
+    *   `min_seconds` (integer): Minimum base delay before an invitation attempt.
+    *   `max_seconds` (integer): Maximum base delay.
+    *   `variance` (float, 0.0 to 1.0): Percentage of random variance applied to the base delay. For example, 0.3 means +/- 30%.
+
+**CLI Flags for `tgarchive cloud`:**
+
+*   `--enable-auto-invites` / `--disable-auto-invites`: Overrides the `auto_invite_accounts` setting from `spectra_config.json` for the current cloud session.
+    *   Example: `python -m tgarchive cloud --channels-file seeds.txt --output-dir ./cloud_out --disable-auto-invites`
+
+**Usage Example:**
+
+To run Cloud Mode, discover channels, and have your other accounts automatically invited:
+
+1.  Ensure your `spectra_config.json` has multiple accounts configured and the `cloud` section is set up (or use defaults):
+    ```json
+    "accounts": [
+      {"session_name": "main_cloud_acc", "api_id": 123, "api_hash": "abc"},
+      {"session_name": "invitee_acc1", "api_id": 456, "api_hash": "def"},
+      {"session_name": "invitee_acc2", "api_id": 789, "api_hash": "ghi"}
+    ],
+    "cloud": {
+      "auto_invite_accounts": true
+    }
+    ```
+2.  Run the Cloud Mode command (the first account, `main_cloud_acc`, will be used for discovery):
+    ```bash
+    python -m tgarchive cloud --channels-file initial_seeds.txt --output-dir ./my_cloud_data
+    ```
+    As `main_cloud_acc` discovers and joins new channels, `invitee_acc1` and `invitee_acc2` will be queued and then invited to join them after randomized delays.
+
+---
+
 ## Message Forwarding Features
 
 SPECTRA includes powerful features for forwarding messages with attachments from origin channels/chats to a specified destination, or even to the "Saved Messages" of multiple configured accounts. This can be useful for consolidating information, creating backups, or distributing content.

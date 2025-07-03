@@ -112,6 +112,18 @@ DEFAULT_CFG: Dict[str, Any] = {
     "sidecar_metadata": True,
     "archive_topics": True,  # New option to control topic archiving
     "default_forwarding_destination_id": None,
+    "forwarding": {
+        "enable_deduplication": True,
+        "secondary_unique_destination": None,
+    },
+    "cloud": {
+        "auto_invite_accounts": True,
+        "invitation_delays": {
+            "min_seconds": 120,
+            "max_seconds": 600,
+            "variance": 0.3
+        }
+    },
 }
 
 # ── Config loader ─────────────────────────────────────────────────────────
@@ -146,6 +158,20 @@ class Config:
         # Ensure default_forwarding_destination_id is present
         if "default_forwarding_destination_id" not in self.data:
             self.data["default_forwarding_destination_id"] = DEFAULT_CFG["default_forwarding_destination_id"]
+
+        # Ensure forwarding settings are present with defaults
+        forwarding_cfg = self.data.setdefault("forwarding", {})
+        default_forwarding_cfg = DEFAULT_CFG.get("forwarding", {})
+        forwarding_cfg.setdefault("enable_deduplication", default_forwarding_cfg.get("enable_deduplication", True))
+        forwarding_cfg.setdefault("secondary_unique_destination", default_forwarding_cfg.get("secondary_unique_destination", None))
+
+        # Ensure cloud settings are present with defaults
+        cloud_cfg = self.data.setdefault("cloud", {})
+        default_cloud_cfg = DEFAULT_CFG.get("cloud", {})
+        cloud_cfg.setdefault("auto_invite_accounts", default_cloud_cfg.get("auto_invite_accounts", True))
+        cloud_cfg.setdefault("invitation_delays", default_cloud_cfg.get("invitation_delays", {
+            "min_seconds": 120, "max_seconds": 600, "variance": 0.3
+        }))
 
         # back-compat
         if not self.data.get("accounts"):

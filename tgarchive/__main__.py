@@ -166,7 +166,25 @@ def setup_parser() -> argparse.ArgumentParser:
     forward_parser.add_argument("--total-mode", action="store_true", help="Forward from all accessible channels found in the database to the destination")
     forward_parser.add_argument("--forward-to-all-saved", action="store_true", help="Forward to 'Saved Messages' of all configured accounts in addition to the main destination.")
     forward_parser.add_argument("--prepend-origin-info", action="store_true", help="Prepend origin channel information to the forwarded message text (used if not forwarding to topics).")
+    forward_parser.add_argument("--secondary-unique-destination", type=str, default=None, help="Secondary destination channel/chat ID or username for unique messages only.")
+    dedup_group = forward_parser.add_mutually_exclusive_group()
+    dedup_group.add_argument("--enable-deduplication", action="store_true", dest="enable_deduplication", default=None, help="Enable message deduplication (overrides config if set).")
+    dedup_group.add_argument("--disable-deduplication", action="store_false", dest="enable_deduplication", help="Disable message deduplication (overrides config if set).")
+
+
+    # Cloud command (modify existing)
+    # Re-fetch cloud_parser if it was already defined to add new args
+    # Assuming cloud_parser is defined like: cloud_parser = subparsers.add_parser("cloud", ...)
+    # For safety, let's ensure cloud_parser is accessible or re-define if necessary.
+    # This code assumes cloud_parser is already part of subparsers.
+    # If not, it needs to be added: e.g. cloud_parser = subparsers.add_parser("cloud", help="Cloud mode processing")
     
+    # Adding args to existing cloud_parser:
+    # (No need to redefine cloud_parser, just add arguments to it)
+    auto_invite_group = cloud_parser.add_mutually_exclusive_group()
+    auto_invite_group.add_argument("--enable-auto-invites", action="store_true", dest="auto_invite_accounts", default=None, help="Enable automatic account invitations in cloud mode (overrides config).")
+    auto_invite_group.add_argument("--disable-auto-invites", action="store_false", dest="auto_invite_accounts", help="Disable automatic account invitations in cloud mode (overrides config).")
+
     return parser
 
 # ── Command handlers ───────────────────────────────────────────────────────
@@ -558,6 +576,17 @@ async def handle_cloud(args: argparse.Namespace) -> int:
     # which calls enhance_config_with_gen_accounts and saves the config.
     # Thus, cfg here should reflect any imported accounts.
 
+    # Handle CLI override for auto_invite_accounts
+    if args.auto_invite_accounts is not None: # CLI flag was used
+        logger.info(f"CLI override for auto_invite_accounts: {args.auto_invite_accounts}")
+        # Ensure the 'cloud' dictionary exists in config data
+        if "cloud" not in cfg.data:
+            cfg.data["cloud"] = {}
+        cfg.data["cloud"]["auto_invite_accounts"] = args.auto_invite_accounts
+        # Note: This change to cfg.data is in-memory for this run.
+        # It won't be saved to spectra_config.json unless cfg.save() is called.
+        # This is usually the desired behavior for CLI overrides.
+
     accounts = cfg.accounts
     if not accounts:
         logger.error("No API accounts configured. Cannot proceed with cloud mode.")
@@ -656,12 +685,27 @@ async def handle_forward(args: argparse.Namespace) -> int:
                 return 1
             logger.info(f"Using default forwarding destination from config: {destination}")
 
+        # Determine deduplication settings
+        # Config default: cfg.data.get("forwarding", {}).get("enable_deduplication", True)
+        # CLI arg: args.enable_deduplication (can be True, False, or None)
+        if args.enable_deduplication is None: # CLI flag not used
+            enable_dedup = cfg.data.get("forwarding", {}).get("enable_deduplication", True)
+        else: # CLI flag was used
+            enable_dedup = args.enable_deduplication
+
+        secondary_dest = args.secondary_unique_destination # From CLI
+        if secondary_dest is None: # If CLI not used, try config
+            secondary_dest = cfg.data.get("forwarding", {}).get("secondary_unique_destination")
+
+
         forwarder = AttachmentForwarder(
-            config=cfg, 
-            db=db, 
+            config=cfg,
+            db=db,
             forward_to_all_saved_messages=args.forward_to_all_saved,
-            prepend_origin_info=args.prepend_origin_info # Pass the new CLI arg
+            prepend_origin_info=args.prepend_origin_info,
             # destination_topic_id is not yet a CLI arg, so it defaults to None
+            enable_deduplication=enable_dedup,
+            secondary_unique_destination=secondary_dest
         )
         try:
             if args.total_mode:

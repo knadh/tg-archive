@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import csv # Added for download log
-import json # Added for sidecar
+import json # Added for sidecar and invitation state
 import logging
 from pathlib import Path
 import collections
 from datetime import datetime, timezone # Added for download log
+import random # Added for invitation delays
+from typing import List, Tuple, Set, Dict, Any # Added for type hinting
 
 from telethon import TelegramClient, errors, functions, types
+from telethon.tl.functions.channels import JoinChannelRequest # Added for joining channels
 from telethon.sessions import StringSession
+
 
 from .sync import Config # Assuming Config is in .sync, adjust if necessary
 
@@ -38,6 +42,17 @@ class CloudProcessor:
 
         # Ensure output directory exists
         self.output_path.mkdir(parents=True, exist_ok=True)
+
+        # Account Invitation System Attributes
+        self.invite_queue: List[Tuple[str, Dict[str, Any]]] = []  # (channel_identifier, account_dict)
+        # Load defaults from config, fallback to hardcoded if not in config for some reason
+        cloud_config_settings = self.config.data.get("cloud", {})
+        default_delays = { "min_seconds": 120, "max_seconds": 600, "variance": 0.3 }
+        self.invite_delays = cloud_config_settings.get("invitation_delays", default_delays)
+
+        self.invitation_state_file = self.output_path / "invitation_state.json"
+        self.processed_invites: Set[str] = set()  # Stores "channel_id:account_session_name"
+        self._load_invitation_state()
         
         # Define paths for text and archive files
         self.text_files_path = self.output_path / "text_files"
@@ -115,6 +130,227 @@ class CloudProcessor:
                 await self.client.disconnect()
             self.client = None # Ensure client is None if setup fails
             raise
+
+    # --- Invitation System Methods ---
+    def _load_invitation_state(self):
+        """Loads processed invites from the state file."""
+        try:
+            if self.invitation_state_file.exists():
+                with open(self.invitation_state_file, "r", encoding="utf-8") as f:
+                    loaded_invites = json.load(f)
+                    if isinstance(loaded_invites, list): # Expecting a list of strings
+                        self.processed_invites = set(loaded_invites)
+                        logger.info(f"Loaded {len(self.processed_invites)} processed invitations from state file.")
+                    else:
+                        logger.warning(f"Invitation state file format error: Expected a list. Starting fresh.")
+                        self.processed_invites = set()
+            else:
+                logger.info("No invitation state file found. Starting fresh.")
+        except json.JSONDecodeError:
+            logger.error(f"Error decoding JSON from invitation state file {self.invitation_state_file}. Starting fresh.", exc_info=True)
+            self.processed_invites = set()
+        except Exception as e:
+            logger.error(f"Failed to load invitation state: {e}", exc_info=True)
+            self.processed_invites = set() # Default to empty set on other errors
+
+    def _save_invitation_state(self):
+        """Saves processed invites to the state file."""
+        try:
+            with open(self.invitation_state_file, "w", encoding="utf-8") as f:
+                json.dump(list(self.processed_invites), f, indent=4) # Save as a list
+            logger.debug(f"Saved {len(self.processed_invites)} processed invitations to state file.")
+        except Exception as e:
+            logger.error(f"Failed to save invitation state: {e}", exc_info=True)
+
+    async def _queue_channel_invitations(self, channel_entity: types.TypeEntity):
+        """Queues invitations for other configured accounts to join this channel."""
+        if not self.config.data.get("cloud", {}).get("auto_invite_accounts", True):
+            logger.debug("Auto-invite accounts is disabled in config. Skipping invitation queuing.")
+            return
+
+        channel_identifier = str(channel_entity.id) # Use channel ID as the canonical identifier
+        channel_title = getattr(channel_entity, 'title', f"ID: {channel_identifier}")
+
+
+        # Only queue if channel is public (has username) or appears to be a general accessible channel.
+        # This is a heuristic; Telethon's join attempt will be the real test.
+        if not hasattr(channel_entity, 'username') or not channel_entity.username:
+            if not isinstance(channel_entity, (types.Channel, types.Chat)): # If not a channel or chat, less likely to be joinable by link/ID
+                 logger.debug(f"Channel '{channel_title}' (ID: {channel_identifier}) is not a public channel (no username) and not a standard channel/chat type. Skipping invitation queuing.")
+                 return
+            logger.info(f"Channel '{channel_title}' (ID: {channel_identifier}) is not public by username, but attempting to queue invites based on its ID.")
+
+
+        current_account_session_name = self.selected_account.get("session_name")
+
+        for account_dict in self.config.accounts:
+            target_account_session_name = account_dict.get("session_name")
+            if not target_account_session_name:
+                logger.warning("Skipping an account for invitation queue due to missing session_name.")
+                continue
+
+            if target_account_session_name == current_account_session_name:
+                continue  # Skip current account
+
+            invite_key = f"{channel_identifier}:{target_account_session_name}"
+
+            # Check if already processed or already in queue for this specific account
+            is_in_queue = any(item[0] == channel_identifier and item[1].get("session_name") == target_account_session_name for item in self.invite_queue)
+
+            if invite_key not in self.processed_invites and not is_in_queue:
+                self.invite_queue.append((channel_identifier, account_dict))
+                logger.info(f"Queued invitation for account '{target_account_session_name}' to join channel '{channel_title}' (ID: {channel_identifier}).")
+            elif invite_key in self.processed_invites:
+                 logger.debug(f"Invitation for '{target_account_session_name}' to '{channel_title}' (ID: {channel_identifier}) already processed.")
+            elif is_in_queue:
+                 logger.debug(f"Invitation for '{target_account_session_name}' to '{channel_title}' (ID: {channel_identifier}) already in queue.")
+
+
+    async def _process_invitation_queue(self):
+        """Gradually processes pending invitations from the queue."""
+        if not self.invite_queue:
+            logger.info("Invitation queue is empty.")
+            return
+
+        if not self.config.data.get("cloud", {}).get("auto_invite_accounts", True):
+            logger.info("Auto-invite accounts is disabled. Skipping processing of invitation queue.")
+            # Clear queue if auto-invites got disabled mid-run? Or leave for next time?
+            # self.invite_queue.clear() # Optional: clear queue if setting changes
+            return
+
+        logger.info(f"Processing {len(self.invite_queue)} pending invitations...")
+
+        # Process a copy of the queue to allow modification during iteration
+        items_to_process = list(self.invite_queue)
+
+        for channel_id_to_join, account_to_invite in items_to_process:
+            target_account_session_name = account_to_invite.get("session_name")
+            invite_key = f"{channel_id_to_join}:{target_account_session_name}"
+
+            # Double check if it got processed by another concurrent call or if state changed
+            if invite_key in self.processed_invites:
+                logger.debug(f"Skipping {invite_key} as it's already processed (checked before delay).")
+                try:
+                    self.invite_queue.remove((channel_id_to_join, account_to_invite))
+                except ValueError:
+                    pass # Item might have been removed by another part of the code if processing is concurrent
+                continue
+
+            try:
+                # Calculate random delay
+                min_delay = float(self.invite_delays.get('min_seconds', 120))
+                max_delay = float(self.invite_delays.get('max_seconds', 600))
+                variance = float(self.invite_delays.get('variance', 0.3))
+
+                base_delay = random.uniform(min_delay, max_delay)
+                actual_delay = random.uniform(base_delay * (1 - variance), base_delay * (1 + variance))
+
+                logger.info(f"Waiting {actual_delay:.1f}s before inviting '{target_account_session_name}' to channel ID '{channel_id_to_join}'.")
+                await asyncio.sleep(actual_delay)
+
+                # Create temporary client for the inviting account
+                invite_client_session_path = str(Path(self.config.sessions_dir_path) / target_account_session_name)
+                api_id = account_to_invite.get("api_id")
+                api_hash = account_to_invite.get("api_hash")
+
+                if not all([target_account_session_name, api_id, api_hash]):
+                    logger.error(f"Account {target_account_session_name or 'Unknown'} is missing critical details for invite. Removing from queue.")
+                    self.invite_queue.remove((channel_id_to_join, account_to_invite))
+                    # Mark as processed to avoid retrying if details are permanently missing
+                    self.processed_invites.add(invite_key)
+                    self._save_invitation_state()
+                    continue
+
+                invite_client = TelegramClient(
+                    invite_client_session_path,
+                    api_id,
+                    api_hash,
+                    proxy=self.config.proxy_conf if self.config.use_proxy else None
+                )
+
+                async with invite_client: # Manages connect and disconnect
+                    if not await invite_client.is_user_authorized():
+                        logger.warning(f"Account '{target_account_session_name}' is not authorized. Skipping invitation to {channel_id_to_join}.")
+                        self.invite_queue.remove((channel_id_to_join, account_to_invite))
+                        # Consider if this should be marked processed or retried later if auth is fixed.
+                        # For now, remove and mark processed to avoid repeated auth failures.
+                        self.processed_invites.add(invite_key)
+                        self._save_invitation_state()
+                        continue
+
+                    logger.info(f"Attempting to join channel ID '{channel_id_to_join}' with account '{target_account_session_name}'.")
+                    try:
+                        # Attempt to join the channel using its ID or username/link if that's what channel_id_to_join holds
+                        # Telethon's JoinChannelRequest typically wants a channel entity or input channel,
+                        # but get_entity first then JoinChannelRequest is safer.
+                        # However, the spec implies direct join. If channel_id_to_join is a username/link, get_entity first.
+                        # For simplicity assuming channel_id_to_join is something JoinChannelRequest can handle (like actual ID or @username)
+
+                        # Robust way: try to get entity first, then join.
+                        # target_entity = await invite_client.get_entity(channel_id_to_join) # This might fail if it's a private link etc.
+                        # await invite_client(JoinChannelRequest(target_entity))
+
+                        # Direct attempt as per implied spec (might need adjustment based on what channel_id_to_join contains)
+                        # If channel_id_to_join is a numerical ID, it must be an InputChannel.
+                        # If it's a username, JoinChannelRequest can take it.
+                        # This part is tricky because channel_id_to_join might be a public username, a private hash, or a numerical ID.
+                        # For now, we assume JoinChannelRequest can handle what's passed.
+                        # A common pattern is: entity = await client.get_entity(identifier); await client(JoinChannelRequest(entity))
+                        # Let's refine this:
+                        try:
+                            target_channel_entity = await invite_client.get_entity(channel_id_to_join)
+                        except ValueError: # If channel_id_to_join is a hash for a private channel, get_entity might fail directly.
+                                           # In such cases, ImportChatInviteRequest is needed.
+                                           # This simple implementation will only work for public channels by username/ID.
+                            logger.warning(f"Could not resolve entity for '{channel_id_to_join}' with account '{target_account_session_name}'. May need ImportChatInviteRequest for private links. Skipping.")
+                            self.invite_queue.remove((channel_id_to_join, account_to_invite))
+                            self.processed_invites.add(invite_key) # Mark as processed because this account can't resolve it
+                            self._save_invitation_state()
+                            continue
+
+                        await invite_client(JoinChannelRequest(target_channel_entity))
+                        logger.info(f"Successfully invited account '{target_account_session_name}' to join channel ID '{channel_id_to_join}'.")
+
+                        self.processed_invites.add(invite_key)
+                        self.invite_queue.remove((channel_id_to_join, account_to_invite))
+                        self._save_invitation_state()
+
+                    except errors.UserAlreadyParticipantError:
+                        logger.info(f"Account '{target_account_session_name}' is already a participant in channel ID '{channel_id_to_join}'.")
+                        self.processed_invites.add(invite_key)
+                        self.invite_queue.remove((channel_id_to_join, account_to_invite))
+                        self._save_invitation_state()
+                    except errors.FloodWaitError as e_flood:
+                        logger.warning(f"Flood wait of {e_flood.seconds}s for account '{target_account_session_name}' when trying to join {channel_id_to_join}. Will retry later.")
+                        # Adjust future delays to be more conservative
+                        self.invite_delays['min_seconds'] = max(float(self.invite_delays.get('min_seconds', 120)), e_flood.seconds + 60)
+                        self.invite_delays['max_seconds'] = max(float(self.invite_delays.get('max_seconds', 600)), e_flood.seconds + 120)
+                        logger.info(f"Updated invitation delays: min={self.invite_delays['min_seconds']}s, max={self.invite_delays['max_seconds']}s")
+                        # Do not remove from queue, it will be picked up in the next _process_invitation_queue call
+                        await asyncio.sleep(e_flood.seconds + 5) # Wait out this specific flood before continuing queue processing
+                    except errors.ChannelsTooMuchError:
+                        logger.error(f"Account '{target_account_session_name}' is in too many channels. Cannot join {channel_id_to_join}. Marking as processed for this account.")
+                        self.processed_invites.add(invite_key)
+                        self.invite_queue.remove((channel_id_to_join, account_to_invite))
+                        self._save_invitation_state()
+                    except (errors.ChannelPrivateError, errors.ChatAdminRequiredError, errors.UserBannedInChannelError, errors.ChatWriteForbiddenError) as e_perm:
+                         logger.warning(f"Permission error for '{target_account_session_name}' joining '{channel_id_to_join}': {type(e_perm).__name__}. Marking as processed for this account.")
+                         self.processed_invites.add(invite_key)
+                         self.invite_queue.remove((channel_id_to_join, account_to_invite))
+                         self._save_invitation_state()
+                    except Exception as e_join:
+                        logger.error(f"Failed to invite '{target_account_session_name}' to channel ID '{channel_id_to_join}': {e_join}", exc_info=True)
+                        # Decide if this should be retried or marked processed. For unknown errors, maybe retry once by not removing from queue.
+                        # For now, let's leave it in queue for one more retry attempt in a subsequent process_invitation_queue call.
+                        # A counter for retries per item could be added for more robustness.
+
+            except Exception as e_outer: # Errors in the delay logic or client creation itself
+                logger.error(f"Outer error processing invitation for {target_account_session_name} to {channel_id_to_join}: {e_outer}", exc_info=True)
+                # Potentially remove from queue or leave for retry depending on error
+                # For now, leave in queue for retry.
+
+        logger.info(f"Finished one pass of processing invitation queue. {len(self.invite_queue)} invitations remaining.")
+    # --- End Invitation System Methods ---
 
     async def close_client(self):
         """Disconnects the TelegramClient if it's active."""
@@ -228,6 +464,9 @@ class CloudProcessor:
                 if not entity: # If entity could not be fetched for any reason
                     logger.debug(f"Entity for {channel_identifier} was not successfully obtained. Skipping further processing for it.")
                     continue
+
+                # Successfully accessed an entity, queue invitations for other accounts
+                await self._queue_channel_invitations(entity)
                 
                 # Link Discovery
                 if current_depth < self.max_depth:
@@ -399,6 +638,9 @@ class CloudProcessor:
         except Exception as e:
             logger.error(f"An critical error occurred during the main channel processing loop: {e}", exc_info=True)
         finally:
+            # After processing all channels in the current run, process any pending invitations
+            logger.info("Main channel processing loop finished. Processing invitation queue...")
+            await self._process_invitation_queue()
             await self.close_client()
             logger.info("Cloud processing finished.")
 

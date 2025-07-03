@@ -386,6 +386,31 @@ class DBHandler(contextlib.AbstractContextManager):
             row = self.cur.execute("SELECT MAX(id) FROM messages").fetchone()
         return row[0] if row and row[0] else None
 
+    def _make_poll(self, msg):
+        """Process poll media - Note: Media class not defined in current scope"""
+        if not msg.media.results or not msg.media.results.results:
+            return None
+
+        options = [{"label": a.text.text, "count": 0, "correct": False}
+                   for a in msg.media.poll.answers]
+
+        total = msg.media.results.total_voters
+        if msg.media.results.results:
+            for i, r in enumerate(msg.media.results.results):
+                options[i]["count"] = r.voters
+                options[i]["percent"] = r.voters / total * 100 if total > 0 else 0
+                options[i]["correct"] = r.correct
+
+        # Note: Media class not defined - this may need adjustment
+        return {
+            "id": msg.id,
+            "type": "poll",
+            "url": None,
+            "title": msg.media.poll.question.text,
+            "description": json.dumps(options),
+            "thumb": None
+        }
+
     # insert helpers
     def add_user(self, u):
         self.cur.execute(

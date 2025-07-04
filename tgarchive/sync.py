@@ -124,6 +124,26 @@ DEFAULT_CFG: Dict[str, Any] = {
             "variance": 0.3
         }
     },
+    "vps": {
+        "enabled": False,
+        "host": "",
+        "port": 22,
+        "username": "",
+        "key_path": "~/.ssh/id_rsa",
+        "remote_base_path": "/data/spectra",
+        "directory_structure": {
+            "archives": "archives/{date}/{channel_name}",
+            "media": "media/{type}/{date}",
+            "text_files": "documents/text/{channel_name}",
+            "cloud_downloads": "cloud/{date}/{channel_name}"
+        },
+        "sync_options": {
+            "auto_sync": False,
+            "sync_interval_minutes": 30,
+            "compression": True,
+            "delete_after_sync": False
+        }
+    }
 }
 
 # ── Config loader ─────────────────────────────────────────────────────────
@@ -172,6 +192,25 @@ class Config:
         cloud_cfg.setdefault("invitation_delays", default_cloud_cfg.get("invitation_delays", {
             "min_seconds": 120, "max_seconds": 600, "variance": 0.3
         }))
+
+        # Ensure vps settings are present with defaults
+        vps_cfg = self.data.setdefault("vps", {})
+        default_vps_cfg = DEFAULT_CFG.get("vps", {})
+        for key, value in default_vps_cfg.items():
+            vps_cfg.setdefault(key, value)
+
+        # Ensure nested dictionaries in vps config are also defaulted
+        if "directory_structure" not in vps_cfg:
+            vps_cfg["directory_structure"] = default_vps_cfg.get("directory_structure", {})
+        else:
+            for key, value in default_vps_cfg.get("directory_structure", {}).items():
+                vps_cfg["directory_structure"].setdefault(key, value)
+
+        if "sync_options" not in vps_cfg:
+            vps_cfg["sync_options"] = default_vps_cfg.get("sync_options", {})
+        else:
+            for key, value in default_vps_cfg.get("sync_options", {}).items():
+                vps_cfg["sync_options"].setdefault(key, value)
 
         # back-compat
         if not self.data.get("accounts"):
@@ -295,6 +334,23 @@ class Config:
     @property
     def proxy_conf(self):
         return self.data.get("proxy", {})
+
+    @property
+    def vps_conf(self):
+        """Returns the VPS configuration dictionary."""
+        # Ensure the vps config is fully populated with defaults if accessed.
+        # This is mostly handled by __post_init__, but this is a safeguard.
+        vps_settings = self.data.setdefault("vps", {})
+        default_vps_settings = DEFAULT_CFG.get("vps", {})
+
+        for key, default_value in default_vps_settings.items():
+            if key not in vps_settings:
+                vps_settings[key] = default_value
+            elif isinstance(default_value, dict): # For nested dicts like directory_structure and sync_options
+                for sub_key, sub_default_value in default_value.items():
+                    if sub_key not in vps_settings[key]:
+                        vps_settings[key][sub_key] = sub_default_value
+        return vps_settings
 
 # ── Proxy cycler ──────────────────────────────────────────────────────────
 class ProxyCycler:

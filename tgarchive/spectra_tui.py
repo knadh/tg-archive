@@ -31,6 +31,7 @@ from .sync import Config, logger
 from .db import SpectraDB
 from .channel_utils import populate_account_channel_access
 from .forwarding import AttachmentForwarder
+from .forms import VPSConfigForm # Import the new form
 
 # ── Global Config ──────────────────────────────────────────────────────────
 TZ = timezone.utc
@@ -997,7 +998,7 @@ class MainMenuForm(npyscreen.Form):
         self.add(npyscreen.ButtonPress, name="3. Network Analysis", when_pressed_function=self.graph_form)
         self.add(npyscreen.ButtonPress, name="4. Forwarding Utilities", when_pressed_function=self.forwarding_form) # New menu item
         self.add(npyscreen.ButtonPress, name="5. Account Management", when_pressed_function=self.account_form) # Adjusted number
-        self.add(npyscreen.ButtonPress, name="6. Settings", when_pressed_function=self.settings_form) # Adjusted number
+        self.add(npyscreen.ButtonPress, name="6. Settings (VPS Config)", when_pressed_function=self.vps_config_form) # Adjusted number and function
         self.add(npyscreen.ButtonPress, name="7. Help & About", when_pressed_function=self.help_form) # Adjusted number
         self.add(npyscreen.ButtonPress, name="8. Exit", when_pressed_function=self.exit_app) # Adjusted number
         
@@ -1040,6 +1041,10 @@ class MainMenuForm(npyscreen.Form):
             "Settings Management not yet implemented in this version.",
             title="Coming Soon"
         )
+
+    def vps_config_form(self):
+        """Switch to VPS Configuration form"""
+        self.parentApp.switchForm("VPS_CONFIG")
     
     def help_form(self):
         """Show help and about information"""
@@ -1096,6 +1101,7 @@ class SpectraApp(npyscreen.NPSAppManaged):
         self.addForm("TOTAL_FORWARD", TotalForwardForm, name="Total Forward Mode") # New form
         self.addForm("DISCOVERY", DiscoveryForm, name="SPECTRA Group Discovery")
         self.addForm("GRAPH", GraphExplorerForm, name="SPECTRA Network Explorer")
+        self.addForm("VPS_CONFIG", VPSConfigForm, name="VPS Configuration") # Add new form
     
     def setup_manager(self):
         """Initialize the integrated manager"""

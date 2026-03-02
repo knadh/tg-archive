@@ -97,9 +97,9 @@ class Sync:
     def new_client(self, session, config):
         if "proxy" in config and config["proxy"].get("enable"):
             proxy = config["proxy"]
-            client = TelegramClient(session, config["api_id"], config["api_hash"], proxy=(proxy["protocol"], proxy["addr"], proxy["port"]))
+            client = TelegramClient(session, config["api_id"], config["api_hash"], device_model=config["device_model"], system_version=config["system_version"], app_version=config["app_version"], system_lang_code=config["system_lang_code"], lang_code=config["lang_code"], proxy=(proxy["protocol"], proxy["addr"], proxy["port"]))
         else:
-            client = TelegramClient(session, config["api_id"], config["api_hash"])
+            client = TelegramClient(session, config["api_id"], config["api_hash"], device_model=config["device_model"], system_version=config["system_version"], app_version=config["app_version"], system_lang_code=config["system_lang_code"], lang_code=config["lang_code"])
         # hide log messages
         # upstream issue https://github.com/LonamiWebs/Telethon/issues/3840
         client_logger = client._log["telethon.client.downloads"]

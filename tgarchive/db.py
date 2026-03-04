@@ -7,6 +7,8 @@ from datetime import datetime
 import pytz
 from typing import Iterator
 
+from tgarchive.utils.message_entities import deserialize_entities, serialize_entities
+
 schema = """
 CREATE table messages (
     id INTEGER NOT NULL PRIMARY KEY,
@@ -14,6 +16,7 @@ CREATE table messages (
     date TIMESTAMP NOT NULL,
     edit_date TIMESTAMP,
     content TEXT,
+    entities JSON,
     reply_to INTEGER,
     user_id INTEGER,
     media_id INTEGER,
@@ -43,8 +46,9 @@ CREATE table media (
 User = namedtuple(
     "User", ["id", "username", "first_name", "last_name", "tags", "avatar"])
 
+
 Message = namedtuple(
-    "Message", ["id", "type", "date", "edit_date", "content", "reply_to", "user", "media"])
+    "Message", ["id", "type", "date", "edit_date", "content", "reply_to", "user", "media", "entities"])
 
 Media = namedtuple(
     "Media", ["id", "type", "url", "title", "description", "thumb"])
@@ -80,6 +84,15 @@ class DB:
             for s in schema.split("##"):
                 self.conn.cursor().execute(s)
                 self.conn.commit()
+            return
+        cur = self.conn.cursor()
+        cur.execute("SELECT name FROM PRAGMA_TABLE_INFO('messages')")
+        columns = [column[0] for column in cur.fetchall()]
+        # entities - for storing formatting information for each message
+        if "entities" not in columns:
+            self.conn.cursor().execute(
+                "ALTER TABLE messages ADD COLUMN entities JSON"
+            )
 
     def _parse_date(self, d) -> str:
         return datetime.strptime(d, "%Y-%m-%dT%H:%M:%S%z")
@@ -122,7 +135,7 @@ class DB:
     def get_dayline(self, year, month, limit=500) -> Iterator[Day]:
         """
         Get the list of all unique yyyy-mm-dd days corresponding
-        message counts and the page number of the first occurrence of 
+        message counts and the page number of the first occurrence of
         the date in the pool of messages for the whole month.
         """
         cur = self.conn.cursor()
@@ -152,7 +165,7 @@ class DB:
         cur = self.conn.cursor()
         cur.execute("""
             SELECT messages.id, messages.type, messages.date, messages.edit_date,
-            messages.content, messages.reply_to, messages.user_id,
+            messages.content, messages.entities, messages.reply_to, messages.user_id,
             users.username, users.first_name, users.last_name, users.tags, users.avatar,
             media.id, media.type, media.url, media.title, media.description, media.thumb
             FROM messages
@@ -201,8 +214,8 @@ class DB:
     def insert_message(self, m: Message):
         cur = self.conn.cursor()
         cur.execute("""INSERT OR REPLACE INTO messages
-            (id, type, date, edit_date, content, reply_to, user_id, media_id)
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?)""",
+            (id, type, date, edit_date, content, reply_to, user_id, media_id, entities)
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (m.id,
                      m.type,
                      m.date.strftime("%Y-%m-%d %H:%M:%S"),
@@ -211,7 +224,8 @@ class DB:
                      m.content,
                      m.reply_to,
                      m.user.id,
-                     m.media.id if m.media else None)
+                     m.media.id if m.media else None,
+                     json.dumps(serialize_entities(m.entities)) if m.entities else None)
                     )
 
     def commit(self):
@@ -220,7 +234,7 @@ class DB:
 
     def _make_message(self, m) -> Message:
         """Makes a Message() object from an SQL result tuple."""
-        id, typ, date, edit_date, content, reply_to, \
+        id, typ, date, edit_date, content, entities, reply_to, \
             user_id, username, first_name, last_name, tags, avatar, \
             media_id, media_type, media_url, media_title, media_description, media_thumb = m
 
@@ -256,4 +270,5 @@ class DB:
                                  last_name=last_name,
                                  tags=tags,
                                  avatar=avatar),
-                       media=md)
+                       media=md,
+                       entities=deserialize_entities(json.loads(entities)) if entities else None)

@@ -181,7 +181,7 @@ class Sync:
                 date=m.date,
                 edit_date=m.edit_date,
                 content=sticker if sticker else m.raw_text,
-                reply_to=m.reply_to_msg_id if m.reply_to and m.reply_to.reply_to_msg_id else None,
+                reply_to=getattr(m.reply_to, "reply_to_msg_id", None),
                 user=self._get_user(m.sender, m.chat),
                 media=med
             )

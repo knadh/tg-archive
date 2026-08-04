@@ -126,6 +126,8 @@ def main():
     elif args.sync:
         # Import because the Telegram client import is quite heavy.
         from .sync import Sync
+        # patch for python 3.14
+        import asyncio  
 
         if args.id and args.from_id and args.from_id > 0:
             logging.error("pass either --id or --from-id but not both")
@@ -137,6 +139,14 @@ def main():
         logging.info("starting Telegram sync (batch_size={}, limit={}, wait={}, mode={})".format(
             cfg["fetch_batch_size"], cfg["fetch_limit"], cfg["fetch_wait"], mode
         ))
+
+       # Added the following 5 lines for compatibility with Python 3.14
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
         try:
             s = Sync(cfg, args.session, DB(args.data))
             s.sync(args.id, args.from_id)

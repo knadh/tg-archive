@@ -159,10 +159,15 @@
 										</div>									
 									{% elif m.media.type == "photo" %}
 										{% set ext = m.media.url.split('/')[-1].split('.')[-1].lower() %}
-										{% if ext in ['mp4', 'webm', 'ogg', 'ogv', 'oga', 'mov'] %}
+										{% if ext in ['mp4', 'webm', 'ogg', 'ogv', 'mov'] %}
 											<video controls>
 												<source src="{{ config.media_dir }}/{{ m.media.url }}">
 											</video>
+											<p><a href="{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a></p>
+										{% elif ext in ['oga', 'mp3', 'wav'] %}
+											<audio controls>
+												<source src="{{ config.media_dir }}/{{ m.media.url }}">
+											</audio>
 											<p><a href="{{ config.media_dir }}/{{ m.media.url }}">{{ m.media.title }}</a></p>
 										{% elif ext in ['webp'] %}
 											<a href="{{ config.media_dir }}/{{ m.media.url }}">

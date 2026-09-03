@@ -194,6 +194,42 @@ ul {
 div.body > div.text {
 	overflow-wrap: anywhere;
 }
+div.body > div.text blockquote {
+	border-left: 3px solid #ccc;
+	padding-left: 10px;
+	margin: 6px 0;
+	color: #666;
+}
+div.body > div.text code {
+	background: #f0f0f2;
+	padding: 2px 5px;
+	border-radius: 4px;
+	font-family: monospace;
+	font-size: 0.9em;
+}
+div.body > div.text pre {
+	background: #f0f0f2;
+	padding: 10px;
+	border-radius: 4px;
+	overflow-x: auto;
+	margin: 6px 0;
+}
+div.body > div.text pre code {
+	background: none;
+	padding: 0;
+}
+div.body > div.text tg-spoiler,
+div.body > div.text .spoiler {
+	background: #555;
+	color: transparent;
+	border-radius: 3px;
+	cursor: pointer;
+}
+div.body > div.text tg-spoiler:hover,
+div.body > div.text .spoiler:hover {
+	background: transparent;
+	color: inherit;
+}
 
 .messages {
 }

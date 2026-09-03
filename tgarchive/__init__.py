@@ -93,7 +93,7 @@ def main():
     args = p.parse_args(args=None if sys.argv[1:] else ['--help'])
 
     if args.version:
-        print("v{}".format(__version__))
+        print(f"v{__version__}")
         sys.exit()
 
     # Setup new site.
@@ -106,13 +106,12 @@ def main():
         try:
             shutil.copytree(exdir, args.path)
         except FileExistsError:
-            logging.error(
-                "the directory '{}' already exists".format(args.path))
+            logging.error(f"the directory '{args.path}' already exists")
             sys.exit(1)
-        except:
+        except Exception:
             raise
 
-        logging.info("created directory '{}'".format(args.path))
+        logging.info(f"created directory '{args.path}'")
         
         # make sure the files are writable
         os.chmod(args.path, 0o755)
@@ -136,9 +135,10 @@ def main():
         cfg = get_config(args.config)
         mode = "takeout" if cfg.get("use_takeout", False) else "standard"
 
-        logging.info("starting Telegram sync (batch_size={}, limit={}, wait={}, mode={})".format(
-            cfg["fetch_batch_size"], cfg["fetch_limit"], cfg["fetch_wait"], mode
-        ))
+        logging.info(
+            f"starting Telegram sync (batch_size={cfg['fetch_batch_size']}, "
+            f"limit={cfg['fetch_limit']}, wait={cfg['fetch_wait']}, mode={mode})"
+        )
 
        # Added the following 5 lines for compatibility with Python 3.14
         try:
@@ -155,9 +155,8 @@ def main():
             if cfg.get("use_takeout", False):
                 s.finish_takeout()
             sys.exit()
-        except:
+        except Exception:
             raise
-
     # Build static site.
     elif args.build:
         from .build import Build
@@ -170,4 +169,4 @@ def main():
             b.load_rss_template(args.rss_template)
         b.build()
 
-        logging.info("published to directory '{}'".format(config["publish_dir"]))
+        logging.info(f"published to directory '{config['publish_dir']}'")

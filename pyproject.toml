@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tg-archive"
+version = "1.3.1"
+description = "A tool for exporting Telegram group chats into static websites, preserving the chat history like mailing list archives."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Kailash Nadh", email = "kailash@nadh.in" }
+]
+classifiers = [
+    "Topic :: Communications :: Chat",
+    "Topic :: Internet :: WWW/HTTP :: Site Management",
+    "Topic :: Documentation",
+]
+dependencies = [
+    "telethon>=1.39.0",
+    "jinja2>=3.1.0",
+    "pyyaml>=6.0",
+    "pillow>=10.0.0",
+    "feedgen>=1.0.0",
+    "tzdata; sys_platform == 'win32'",
+]
+
+[project.scripts]
+tg-archive = "tgarchive:main"
+
+[tool.setuptools.packages.find]
+include = ["tgarchive*"]
+
+[tool.setuptools.package-data]
+tgarchive = ["example/*", "example/static/*"]

@@ -1,17 +1,19 @@
 from io import BytesIO
 from sys import exit
+import html
 import json
 import logging
 import os
 import tempfile
 import shutil
 import time
+from typing import Iterator, Any
 
 from PIL import Image
 from telethon import TelegramClient, errors, sync
 import telethon.tl.types
-
-from .db import User, Message, Media
+import telethon.extensions.html as tl_html
+from .db import User, Message, Media, clean_iv_url, clean_iv_text
 
 
 class Sync:
@@ -39,14 +41,13 @@ class Sync:
 
         if ids:
             last_id, last_date = (ids, None)
-            logging.info("fetching message id={}".format(ids))
+            logging.info(f"fetching message id={ids}")
         elif from_id:
             last_id, last_date = (from_id, None)
-            logging.info("fetching from last message id={}".format(last_id))
+            logging.info(f"fetching from last message id={last_id}")
         else:
             last_id, last_date = self.db.get_last_message_id()
-            logging.info("fetching from last message id={} ({})".format(
-                last_id, last_date))
+            logging.info(f"fetching from last message id={last_id} ({last_date})")
 
         group_id = self._get_group_id(self.config["group"])
 
@@ -72,7 +73,7 @@ class Sync:
                 last_date = m.date
                 n += 1
                 if n % 300 == 0:
-                    logging.info("fetched {} messages".format(n))
+                    logging.info(f"fetched {n} messages")
                     self.db.commit()
 
                 if 0 < self.config["fetch_limit"] <= n or ids:
@@ -82,8 +83,7 @@ class Sync:
             self.db.commit()
             if has:
                 last_id = m.id
-                logging.info("fetched {} messages. sleeping for {} seconds".format(
-                    n, self.config["fetch_wait"]))
+                logging.info(f"fetched {n} messages. sleeping for {self.config['fetch_wait']} seconds")
                 time.sleep(self.config["fetch_wait"])
             else:
                 break
@@ -91,8 +91,7 @@ class Sync:
         self.db.commit()
         if self.config.get("use_takeout", False):
             self.finish_takeout()
-        logging.info(
-            "finished. fetched {} messages. last message = {}".format(n, last_date))
+        logging.info(f"finished. fetched {n} messages. last message = {last_date}")
 
     def new_client(self, session, config):
         if "proxy" in config and config["proxy"].get("enable"):
@@ -124,24 +123,24 @@ class Sync:
                     return takeout_client
                 except errors.TakeoutInitDelayError as e:
                     logging.info(
-                        "please allow the data export request received from Telegram on your device. "
-                        "you can also wait for {} seconds.".format(e.seconds))
-                    logging.info(
-                        "press Enter key after allowing the data export request to continue..")
+                        f"please allow the data export request received from Telegram on your device. "
+                        f"you can also wait for {e.seconds} seconds."
+                    )
+                    logging.info("press Enter key after allowing the data export request to continue..")
                     input()
-                    logging.info("trying again.. ({})".format(retry + 2))
+                    logging.info(f"trying again.. ({retry + 2})")
                 except errors.TakeoutInvalidError:
                     logging.info("takeout invalidated. delete the session.session file and try again.")
             else:
                 logging.info("could not initiate takeout.")
-                raise(Exception("could not initiate takeout."))
+                raise RuntimeError("could not initiate takeout.")
         else:
             return client
 
     def finish_takeout(self):
         self.client.__exit__(None, None, None)
 
-    def _get_messages(self, group, offset_id, ids=None) -> Message:
+    def _get_messages(self, group, offset_id, ids=None) -> Iterator[Message]:
         messages = self._fetch_messages(group, offset_id, ids)
         # https://docs.telethon.dev/en/latest/quick-references/objects-reference.html#message
         for m in messages:
@@ -180,13 +179,92 @@ class Sync:
                 id=m.id,
                 date=m.date,
                 edit_date=m.edit_date,
-                content=sticker if sticker else m.raw_text,
+                content=sticker if sticker else self._format_message(m),
                 reply_to=m.reply_to_msg_id if m.reply_to and m.reply_to.reply_to_msg_id else None,
                 user=self._get_user(m.sender, m.chat),
                 media=med
             )
+    def _format_message(self, m) -> str:
+        """Format message text preserving rich text entities with proper UTF-16 alignment."""
+        raw_msg = getattr(m, "message", None) or m.raw_text or ""
+        if not raw_msg:
+            return ""
 
-    def _fetch_messages(self, group, offset_id, ids=None) -> Message:
+        if not m.entities:
+            return clean_iv_text(html.escape(raw_msg))
+
+        try:
+            return self._unparse_utf16_html(raw_msg, m.entities)
+        except Exception as e:
+            logging.warning(f"failed to format message #{m.id} to HTML: {e}")
+            return clean_iv_text(html.escape(m.raw_text or ""))
+
+    @staticmethod
+    def _unparse_utf16_html(text: str, entities: list) -> str:
+        """
+        Telegram MTProto entity offsets and lengths are in UTF-16 code units.
+        Slice byte-by-byte in UTF-16-LE to avoid CJK/Emoji offset drift.
+        """
+        if not text:
+            return ""
+        if not entities:
+            return clean_iv_text(html.escape(text))
+
+        encoded = text.encode("utf-16-le")
+        num_code_units = len(encoded) // 2
+
+        events = []
+        for ent in entities:
+            tag_open = None
+            tag_close = None
+            if isinstance(ent, telethon.tl.types.MessageEntityBold):
+                tag_open, tag_close = "<strong>", "</strong>"
+            elif isinstance(ent, telethon.tl.types.MessageEntityItalic):
+                tag_open, tag_close = "<em>", "</em>"
+            elif isinstance(ent, telethon.tl.types.MessageEntityUnderline):
+                tag_open, tag_close = "<u>", "</u>"
+            elif isinstance(ent, telethon.tl.types.MessageEntityStrike):
+                tag_open, tag_close = "<del>", "</del>"
+            elif isinstance(ent, telethon.tl.types.MessageEntityCode):
+                tag_open, tag_close = "<code>", "</code>"
+            elif isinstance(ent, telethon.tl.types.MessageEntityPre):
+                lang = f' class="language-{html.escape(ent.language)}"' if getattr(ent, "language", None) else ""
+                tag_open, tag_close = f"<pre><code{lang}>", "</code></pre>"
+            elif isinstance(ent, telethon.tl.types.MessageEntityBlockquote):
+                tag_open, tag_close = "<blockquote>", "</blockquote>"
+            elif isinstance(ent, telethon.tl.types.MessageEntitySpoiler):
+                tag_open, tag_close = "<tg-spoiler>", "</tg-spoiler>"
+            elif isinstance(ent, telethon.tl.types.MessageEntityTextUrl):
+                clean_url = clean_iv_url(ent.url)
+                tag_open, tag_close = f'<a href="{html.escape(clean_url)}">', "</a>"
+
+            if tag_open and tag_close:
+                start = min(ent.offset, num_code_units)
+                end = min(ent.offset + ent.length, num_code_units)
+                events.append((end, 0, start, tag_close))
+                events.append((start, 1, -ent.length, tag_open))
+
+        events.sort(key=lambda x: (x[0], x[1], x[2]))
+
+        result = []
+        curr_offset = 0
+
+        for offset, is_open, prio, tag in events:
+            if offset > curr_offset:
+                slice_bytes = encoded[curr_offset * 2 : offset * 2]
+                slice_text = slice_bytes.decode("utf-16-le", errors="replace")
+                result.append(html.escape(slice_text))
+                curr_offset = offset
+            result.append(tag)
+
+        if curr_offset < num_code_units:
+            slice_bytes = encoded[curr_offset * 2 : num_code_units * 2]
+            slice_text = slice_bytes.decode("utf-16-le", errors="replace")
+            result.append(html.escape(slice_text))
+
+        return clean_iv_text("".join(result))
+
+    def _fetch_messages(self, group, offset_id, ids=None) -> Any:
         try:
             if self.config.get("use_takeout", False):
                 wait_time = 0
@@ -199,8 +277,7 @@ class Sync:
                                                 reverse=True)
             return messages
         except errors.FloodWaitError as e:
-            logging.info(
-                "flood waited: have to wait {} seconds".format(e.seconds))
+            logging.info(f"flood waited: have to wait {e.seconds} seconds")
 
     def _get_user(self, u, chat) -> User:
         tags = []
@@ -286,7 +363,7 @@ class Sync:
             return Media(
                 id=msg.id,
                 type="webpage",
-                url=msg.media.webpage.url,
+                url=clean_iv_url(msg.media.webpage.url),
                 title=msg.media.webpage.title,
                 description=msg.media.webpage.description if msg.media.webpage.description else None,
                 thumb=None
@@ -299,11 +376,10 @@ class Sync:
                 if len(self.config["media_mime_types"]) > 0:
                     if hasattr(msg, "file") and hasattr(msg.file, "mime_type") and msg.file.mime_type:
                         if msg.file.mime_type not in self.config["media_mime_types"]:
-                            logging.info(
-                                "skipping media #{} / {}".format(msg.file.name, msg.file.mime_type))
+                            logging.info(f"skipping media #{msg.file.name} / {msg.file.mime_type}")
                             return
 
-                logging.info("downloading media #{}".format(msg.id))
+                logging.info(f"downloading media #{msg.id}")
                 try:
                     basename, fname, thumb = self._download_media(msg)
                     return Media(
@@ -315,10 +391,9 @@ class Sync:
                         thumb=thumb
                     )
                 except Exception as e:
-                    logging.error(
-                        "error downloading media: #{}: {}".format(msg.id, e))
+                    logging.error(f"error downloading media: #{msg.id}: {e}")
 
-    def _download_media(self, msg) -> [str, str, str]:
+    def _download_media(self, msg) -> tuple[str, str, str | None]:
         """
         Download a media / file attached to a message and return its original
         filename, sanitized name on disk, and the thumbnail (if any). 
@@ -329,7 +404,7 @@ class Sync:
         fpath = self.client.download_media(msg, file=tempfile.gettempdir())
         basename = os.path.basename(fpath)
 
-        newname = "{}.{}".format(msg.id, self._get_file_ext(basename))
+        newname = f"{msg.id}.{self._get_file_ext(basename)}"
         shutil.move(fpath, os.path.join(self.config["media_dir"], newname))
 
         # If it's a photo, download the thumbnail.
@@ -337,8 +412,7 @@ class Sync:
         if isinstance(msg.media, telethon.tl.types.MessageMediaPhoto):
             tpath = self.client.download_media(
                 msg, file=tempfile.gettempdir(), thumb=1)
-            tname = "thumb_{}.{}".format(
-                msg.id, self._get_file_ext(os.path.basename(tpath)))
+            tname = f"thumb_{msg.id}.{self._get_file_ext(os.path.basename(tpath))}"
             shutil.move(tpath, os.path.join(self.config["media_dir"], tname))
 
         return basename, newname, tname
@@ -351,20 +425,20 @@ class Sync:
 
         return ".file"
 
-    def _download_avatar(self, user):
-        fname = "avatar_{}.jpg".format(user.id)
+    def _download_avatar(self, user) -> str | None:
+        fname = f"avatar_{user.id}.jpg"
         fpath = os.path.join(self.config["media_dir"], fname)
 
         if os.path.exists(fpath):
             return fname
 
-        logging.info("downloading avatar #{}".format(user.id))
+        logging.info(f"downloading avatar #{user.id}")
 
         # Download the file into a container, resize it, and then write to disk.
         b = BytesIO()
         profile_photo = self.client.download_profile_photo(user, file=b)
         if profile_photo is None:
-            logging.info("user has no avatar #{}".format(user.id))
+            logging.info(f"user has no avatar #{user.id}")
             return None
 
         im = Image.open(b)
@@ -396,20 +470,18 @@ class Sync:
         try:
             entity = self.client.get_entity(group)
         except ValueError:
-            logging.critical("the group: {} does not exist,"
-                             " or the authorized user is not a participant!".format(group))
+            logging.critical(f"the group: {group} does not exist, or the authorized user is not a participant!")
             # This is a critical error, so exit with code: 1
             exit(1)
 
         return entity.id
 
-    def _downloadAvatarForUserOrChat(self, entity):
+    def _downloadAvatarForUserOrChat(self, entity) -> str | None:
         avatar = None
         if self.config["download_avatars"]:
             try:
                 fname = self._download_avatar(entity)
                 avatar = fname
             except Exception as e:
-                logging.error(
-                    "error downloading avatar: #{}: {}".format(entity.id, e))
+                logging.error(f"error downloading avatar: #{entity.id}: {e}")
         return avatar

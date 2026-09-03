@@ -7,9 +7,9 @@ import os
 import re
 import shutil
 import sys
-
 from feedgen.feed import FeedGenerator
 from jinja2 import Template
+from markupsafe import Markup
 
 from .db import User, Message
 
@@ -186,10 +186,12 @@ class Build:
             out = m.media.title
         return out if out else ""
 
-    def _nl2br(self, s) -> str:
+    def _nl2br(self, s) -> Markup:
+        if not s:
+            return Markup("")
         # There has to be a \n before <br> so as to not break
         # Jinja's automatic hyperlinking of URLs.
-        return _NL2BR.sub("\n\n", s).replace("\n", "\n<br />")
+        return Markup(_NL2BR.sub("\n\n", str(s)).replace("\n", "\n<br />"))
 
     def _create_publish_dir(self):
         pubdir = self.config["publish_dir"]

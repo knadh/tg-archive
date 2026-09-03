@@ -108,8 +108,9 @@ def test_build_site():
                  tags=["dev"], avatar=None)
         db.insert_user(u)
         dt = datetime(2026, 3, 15, 14, 0, 0, tzinfo=timezone.utc)
+        rich_content = "<code>  语言</code>: #汉语\n<a href=\"https://telegra.ph/post-1\">预览</a>"
         msg = Message(id=1, type="message", date=dt, edit_date=None,
-                      content="First post", reply_to=None, user=u, media=None)
+                      content=rich_content, reply_to=None, user=u, media=None)
         db.insert_message(msg)
         db.commit()
 
@@ -147,10 +148,11 @@ def test_build_site():
         # Verify HTML contents
         with open(os.path.join(pubdir, "2026-03.html"), "r", encoding="utf-8") as f:
             html = f.read()
-            assert "First post" in html
+            assert "<code>  语言</code>" in html, "<code> was escaped in rendered HTML"
+            assert "&lt;code&gt;" not in html, "<code> entity found escaped in rendered HTML"
+            assert '<a href="https://telegra.ph/post-1">预览</a>' in html
             assert "testuser" in html
             assert "dev" in html
-
         # Verify incremental build: add new file to pubdir/media, rebuild, ensure it remains
         test_media_dest = os.path.join(pubdir, os.path.basename(mediadir), "test.txt")
         assert os.path.exists(test_media_dest), "media file not copied"

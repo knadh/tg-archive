@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Iterator
 from urllib.parse import urlparse, parse_qs, unquote
 from zoneinfo import ZoneInfo
+from markupsafe import Markup
 
 _IV_URL_RE = re.compile(r'https?://(?:t\.me|telegram\.me)/iv\?[^\s<>"\')]+')
 
@@ -302,7 +303,7 @@ class DB:
 
         tag_list = tags.split() if isinstance(tags, str) else (tags or [])
 
-        clean_content = clean_iv_text(content) if content else None
+        clean_content = Markup(clean_iv_text(content)) if content else None
         return Message(id=mid,
                        type=typ,
                        date=date,

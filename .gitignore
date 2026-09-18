@@ -27,3 +27,12 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Local runtime and user files
+/main.js
+config.yaml
+*.session
+*.session-journal
+data.sqlite*
+site/
+media/
